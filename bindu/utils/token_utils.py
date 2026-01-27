@@ -11,7 +11,7 @@ from typing import Optional
 
 import aiohttp
 
-from bindu.auth.hydra_registration import load_agent_credentials
+from bindu.auth.hydra.registration import load_agent_credentials
 from bindu.settings import app_settings
 from bindu.utils.logging import get_logger
 
@@ -110,7 +110,7 @@ async def introspect_token(token: str) -> Optional[dict]:
     Returns:
         Introspection result dict or None
     """
-    from bindu.auth.hydra_client import HydraClient
+    from bindu.auth.hydra.client import HydraClient
 
     try:
         async with HydraClient(
@@ -136,7 +136,7 @@ async def revoke_token(token: str) -> bool:
     Returns:
         True if revoked successfully, False otherwise
     """
-    from bindu.auth.hydra_client import HydraClient
+    from bindu.auth.hydra.client import HydraClient
 
     try:
         async with HydraClient(

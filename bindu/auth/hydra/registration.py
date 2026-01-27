@@ -12,7 +12,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, Optional
 
-from bindu.auth.hydra_client import HydraClient
+from bindu.auth.hydra.client import HydraClient
 from bindu.settings import app_settings
 from bindu.utils.logging import get_logger
 
@@ -256,52 +256,4 @@ async def register_agent_in_hydra(
             "Agent will start without OAuth credentials. "
             "Authentication may not work correctly."
         )
-        return None
-
-
-async def get_agent_token(credentials: AgentCredentials) -> Optional[str]:
-    """Get access token for agent using client credentials flow.
-
-    Args:
-        credentials: Agent OAuth credentials
-
-    Returns:
-        Access token if successful, None otherwise
-    """
-    try:
-        import aiohttp
-
-        token_url = f"{app_settings.hydra.public_url}/oauth2/token"
-
-        # Prepare basic auth
-        import base64
-
-        auth_string = f"{credentials.client_id}:{credentials.client_secret}"
-        auth_bytes = auth_string.encode("utf-8")
-        auth_b64 = base64.b64encode(auth_bytes).decode("utf-8")
-
-        headers = {
-            "Authorization": f"Basic {auth_b64}",
-            "Content-Type": "application/x-www-form-urlencoded",
-        }
-
-        data = {
-            "grant_type": "client_credentials",
-            "scope": " ".join(credentials.scopes),
-        }
-
-        async with aiohttp.ClientSession() as session:
-            async with session.post(token_url, headers=headers, data=data) as response:
-                if response.status == 200:
-                    result = await response.json()
-                    return result.get("access_token")
-                else:
-                    error_text = await response.text()
-                    logger.error(
-                        f"Failed to get token: {response.status} - {error_text}"
-                    )
-                    return None
-
-    except Exception as e:
-        logger.error(f"Failed to get agent token: {e}")
         return None

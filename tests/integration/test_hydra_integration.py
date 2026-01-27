@@ -3,8 +3,8 @@
 import pytest
 from unittest.mock import AsyncMock, patch
 
-from bindu.auth.hydra_client import HydraClient
-from bindu.auth.hydra_registration import (
+from bindu.auth.hydra.client import HydraClient
+from bindu.auth.hydra.registration import (
     register_agent_in_hydra,
     load_agent_credentials,
 )

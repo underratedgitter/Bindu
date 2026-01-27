@@ -306,7 +306,7 @@ def bindufy(
             "Registering agent in Hydra OAuth2 server with DID-based authentication..."
         )
         import asyncio
-        from bindu.auth.hydra_registration import register_agent_in_hydra
+        from bindu.auth.hydra.registration import register_agent_in_hydra
 
         credentials = asyncio.run(
             register_agent_in_hydra(

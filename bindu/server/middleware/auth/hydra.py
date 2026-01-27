@@ -11,7 +11,7 @@ from __future__ import annotations as _annotations
 import time
 from typing import Any
 
-from bindu.auth.hydra_client import HydraClient
+from bindu.auth.hydra.client import HydraClient
 from bindu.utils.logging import get_logger
 from bindu.utils.request_utils import extract_error_fields, jsonrpc_error
 from bindu.utils.did_signature import (

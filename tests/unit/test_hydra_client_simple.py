@@ -3,7 +3,7 @@
 import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
 
-from bindu.auth.hydra_client import HydraClient
+from bindu.auth.hydra.client import HydraClient
 
 
 class TestHydraClientSimple:
@@ -34,7 +34,9 @@ class TestHydraClientSimple:
             mock_response = MagicMock()
             mock_response.status = 200
 
-            with patch.object(client, '_request_with_retry', new=AsyncMock(return_value=mock_response)):
+            with patch.object(
+                client, "_request_with_retry", new=AsyncMock(return_value=mock_response)
+            ):
                 is_healthy = await client.health_check()
                 assert is_healthy is True
 
@@ -48,7 +50,9 @@ class TestHydraClientSimple:
             mock_response = MagicMock()
             mock_response.status = 500
 
-            with patch.object(client, '_request_with_retry', new=AsyncMock(return_value=mock_response)):
+            with patch.object(
+                client, "_request_with_retry", new=AsyncMock(return_value=mock_response)
+            ):
                 is_healthy = await client.health_check()
                 assert is_healthy is False
 
@@ -65,7 +69,9 @@ class TestHydraClientSimple:
                 return_value={"client_id": "test-client", "client_name": "Test Client"}
             )
 
-            with patch.object(client, '_request_with_retry', new=AsyncMock(return_value=mock_response)):
+            with patch.object(
+                client, "_request_with_retry", new=AsyncMock(return_value=mock_response)
+            ):
                 result = await client.get_oauth_client("test-client")
                 assert result is not None
                 assert result["client_id"] == "test-client"
@@ -80,7 +86,9 @@ class TestHydraClientSimple:
             mock_response = MagicMock()
             mock_response.status = 404
 
-            with patch.object(client, '_request_with_retry', new=AsyncMock(return_value=mock_response)):
+            with patch.object(
+                client, "_request_with_retry", new=AsyncMock(return_value=mock_response)
+            ):
                 result = await client.get_oauth_client("nonexistent")
                 assert result is None
 
@@ -97,7 +105,9 @@ class TestHydraClientSimple:
                 return_value={"client_id": "new-client", "client_name": "New Client"}
             )
 
-            with patch.object(client, '_request_with_retry', new=AsyncMock(return_value=mock_response)):
+            with patch.object(
+                client, "_request_with_retry", new=AsyncMock(return_value=mock_response)
+            ):
                 client_data = {
                     "client_id": "new-client",
                     "client_name": "New Client",
@@ -117,7 +127,9 @@ class TestHydraClientSimple:
             mock_response = MagicMock()
             mock_response.status = 204
 
-            with patch.object(client, '_request_with_retry', new=AsyncMock(return_value=mock_response)):
+            with patch.object(
+                client, "_request_with_retry", new=AsyncMock(return_value=mock_response)
+            ):
                 result = await client.delete_oauth_client("test-client")
                 assert result is True
 
@@ -131,7 +143,9 @@ class TestHydraClientSimple:
             mock_response = MagicMock()
             mock_response.status = 404
 
-            with patch.object(client, '_request_with_retry', new=AsyncMock(return_value=mock_response)):
+            with patch.object(
+                client, "_request_with_retry", new=AsyncMock(return_value=mock_response)
+            ):
                 result = await client.delete_oauth_client("nonexistent")
                 assert result is False
 
@@ -148,8 +162,12 @@ class TestHydraClientSimple:
                 return_value={"active": True, "sub": "user-123"}
             )
 
-            with patch.object(client, '_request_with_retry', new=AsyncMock(return_value=mock_response)):
-                result = await client.introspect_token("test_token")  # pragma: allowlist secret
+            with patch.object(
+                client, "_request_with_retry", new=AsyncMock(return_value=mock_response)
+            ):
+                result = await client.introspect_token(
+                    "test_token"
+                )  # pragma: allowlist secret
                 assert result is not None
                 assert result["active"] is True
 
@@ -163,6 +181,10 @@ class TestHydraClientSimple:
             mock_response = MagicMock()
             mock_response.status = 200
 
-            with patch.object(client, '_request_with_retry', new=AsyncMock(return_value=mock_response)):
-                result = await client.revoke_token("test_token")  # pragma: allowlist secret
+            with patch.object(
+                client, "_request_with_retry", new=AsyncMock(return_value=mock_response)
+            ):
+                result = await client.revoke_token(
+                    "test_token"
+                )  # pragma: allowlist secret
                 assert result is True

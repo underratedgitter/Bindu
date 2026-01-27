@@ -10,7 +10,7 @@ from __future__ import annotations as _annotations
 from starlette.requests import Request
 from starlette.responses import JSONResponse
 
-from bindu.auth.hydra_client import HydraClient
+from bindu.auth.hydra.client import HydraClient
 from bindu.settings import app_settings
 from bindu.utils.logging import get_logger
 

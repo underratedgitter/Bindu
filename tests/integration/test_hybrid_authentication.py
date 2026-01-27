@@ -389,9 +389,9 @@ class TestAgentRegistrationWithDID:
     @pytest.mark.asyncio
     async def test_register_agent_with_did_extension(self, mock_did_extension):
         """Test registering agent with DID extension."""
-        from bindu.auth.hydra_registration import register_agent_in_hydra
+        from bindu.auth.hydra.registration import register_agent_in_hydra
 
-        with patch("bindu.auth.hydra_registration.app_settings") as mock_settings:
+        with patch("bindu.auth.hydra.registration.app_settings") as mock_settings:
             mock_settings.hydra.auto_register_agents = True
             mock_settings.hydra.admin_url = "https://hydra-admin.example.com"
             mock_settings.hydra.public_url = "https://hydra.example.com"

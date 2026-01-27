@@ -6,10 +6,11 @@ import tempfile
 from pathlib import Path
 from unittest.mock import AsyncMock, patch
 
-from bindu.auth.hydra_registration import (
+from bindu.auth.hydra.registration import (
     save_agent_credentials,
     load_agent_credentials,
     AgentCredentials,
+    register_agent_in_hydra,
 )
 
 
@@ -243,9 +244,9 @@ class TestRegisterAgentInHydra:
     @pytest.mark.asyncio
     async def test_registration_disabled(self):
         """Test when auto-registration is disabled."""
-        from bindu.auth.hydra_registration import register_agent_in_hydra
+        from bindu.auth.hydra.registration import register_agent_in_hydra
 
-        with patch("bindu.auth.hydra_registration.app_settings") as mock_settings:
+        with patch("bindu.auth.hydra.registration.app_settings") as mock_settings:
             mock_settings.hydra.auto_register_agents = False
 
             result = await register_agent_in_hydra(
@@ -261,7 +262,7 @@ class TestRegisterAgentInHydra:
     @pytest.mark.asyncio
     async def test_registration_with_existing_credentials(self):
         """Test when credentials already exist."""
-        from bindu.auth.hydra_registration import register_agent_in_hydra
+        from bindu.auth.hydra.registration import register_agent_in_hydra
 
         mock_creds = AgentCredentials(
             agent_id="test-agent",
@@ -271,11 +272,11 @@ class TestRegisterAgentInHydra:
             scopes=["agent:read"],
         )
 
-        with patch("bindu.auth.hydra_registration.app_settings") as mock_settings:
+        with patch("bindu.auth.hydra.registration.app_settings") as mock_settings:
             mock_settings.hydra.auto_register_agents = True
 
             with patch(
-                "bindu.auth.hydra_registration.load_agent_credentials",
+                "bindu.auth.hydra.registration.load_agent_credentials",
                 return_value=mock_creds,
             ):
                 result = await register_agent_in_hydra(
@@ -291,9 +292,9 @@ class TestRegisterAgentInHydra:
     @pytest.mark.asyncio
     async def test_registration_client_exists_in_hydra(self):
         """Test when client already exists in Hydra but not locally."""
-        from bindu.auth.hydra_registration import register_agent_in_hydra
+        from bindu.auth.hydra.registration import register_agent_in_hydra
 
-        with patch("bindu.auth.hydra_registration.app_settings") as mock_settings:
+        with patch("bindu.auth.hydra.registration.app_settings") as mock_settings:
             mock_settings.hydra.auto_register_agents = True
             mock_settings.hydra.admin_url = "https://hydra-admin.example.com"
             mock_settings.hydra.public_url = "https://hydra.example.com"
@@ -302,11 +303,11 @@ class TestRegisterAgentInHydra:
             mock_settings.hydra.max_retries = 3
 
             with patch(
-                "bindu.auth.hydra_registration.load_agent_credentials",
+                "bindu.auth.hydra.registration.load_agent_credentials",
                 return_value=None,
             ):
                 with patch(
-                    "bindu.auth.hydra_registration.HydraClient"
+                    "bindu.auth.hydra.registration.HydraClient"
                 ) as mock_hydra_class:
                     mock_hydra = AsyncMock()
                     mock_hydra.get_oauth_client.return_value = {
