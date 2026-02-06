@@ -10,7 +10,7 @@ Or set environment variables directly and run: python examples/agno_simple_examp
 from bindu.penguin.bindufy import bindufy
 from agno.agent import Agent
 from agno.tools.duckduckgo import DuckDuckGoTools
-from agno.models.openai import OpenAIChat
+from agno.models.openrouter import OpenRouter
 
 from dotenv import load_dotenv
 
@@ -19,7 +19,7 @@ load_dotenv()
 # Define your agent
 agent = Agent(
     instructions="You are a research assistant that finds and summarizes information.",
-    model=OpenAIChat(id="gpt-4o"),
+    model=OpenRouter(id="gpt-4o", api_key=OPENROUTER_API_KEY),
     tools=[DuckDuckGoTools()],
 )
 
