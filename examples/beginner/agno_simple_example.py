@@ -1,10 +1,19 @@
-"""Example of creating a research assistant agent using Bindu and Agno.
+"""Joke Telling Entertainment Agent
 
-This example demonstrates how to create a simple research assistant agent
-that uses DuckDuckGo for web searches and can be deployed as a Bindu agent.
+A Bindu agent that tells jokes and entertains users.
+Provides witty, clean humor with customizable topics.
 
-Run with: bindu examples/agno_simple_example.py
-Or set environment variables directly and run: python examples/agno_simple_example.py
+Features:
+- Puns, dad jokes, tech jokes, situational humor
+- Topic-specific joke generation
+- Web search for trending content
+- OpenRouter integration with gpt-oss-120b
+
+Usage:
+    python agno_simple_example.py
+
+Environment:
+    Requires OPENROUTER_API_KEY in .env file
 """
 
 import os

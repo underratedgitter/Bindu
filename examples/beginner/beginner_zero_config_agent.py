@@ -1,10 +1,19 @@
-"""
-Beginner Zero-Config Bindu Agent
+"""Zero-Configuration Beginner Agent
 
-Purpose:
-- Help first-time users run Bindu locally in under 1 minute
-- No database, Redis, or cloud dependencies
-- Safe default agent for learning Bindu fundamentals
+A minimal Bindu agent for first-time users.
+No external dependencies - perfect for learning Bindu basics.
+
+Features:
+- Zero configuration required
+- Simple, friendly responses
+- Web search capability
+- OpenRouter integration with gpt-oss-120b
+
+Usage:
+    python beginner_zero_config_agent.py
+
+Environment:
+    Requires OPENROUTER_API_KEY in .env file
 """
 
 from bindu.penguin.bindufy import bindufy

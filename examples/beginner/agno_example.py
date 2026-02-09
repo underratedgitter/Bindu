@@ -1,10 +1,18 @@
-"""Example of creating a research assistant agent using Bindu and Agno.
+"""Research Assistant Agent with Web Search
 
-This example demonstrates how to create a simple research assistant agent
-that uses DuckDuckGo for web searches and can be deployed as a Bindu agent.
+A Bindu agent that performs research using DuckDuckGo web search.
+Provides comprehensive, well-researched answers on any topic.
 
-Run with: bindu examples/agno_example.py
-Or set environment variables directly and run: python examples/agno_example.py
+Features:
+- Web search via DuckDuckGo
+- Research and summarization capabilities
+- OpenRouter integration with gpt-oss-120b
+
+Usage:
+    python agno_example.py
+
+Environment:
+    Requires OPENROUTER_API_KEY in .env file
 """
 
 from dotenv import load_dotenv

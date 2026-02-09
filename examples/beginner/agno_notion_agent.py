@@ -1,9 +1,18 @@
-"""
-Agno Notion Agent using OpenRouter API
+"""Notion Integration Agent
 
-This agent can:
-- Create new pages in Notion
-- Search existing Notion database entries
+A Bindu agent that integrates with Notion for content management.
+Can create pages and search existing database entries.
+
+Features:
+- Create new Notion pages
+- Search Notion database
+- OpenRouter integration with gpt-oss-120b
+
+Usage:
+    python agno_notion_agent.py
+
+Environment:
+    Requires OPENROUTER_API_KEY, NOTION_API_KEY, NOTION_DATABASE_ID in .env file
 """
 
 import os
