@@ -48,8 +48,6 @@ Built with a distributed architecture (Task Manager, scheduler, storage), Bindu 
 
 ---
 
-<br/>
-
 ## 🎥 Watch Bindu in Action
 
 <div align="center">
@@ -65,7 +63,7 @@ Before installing Bindu, ensure you have:
 
 - **Python 3.12 or higher** - [Download here](https://www.python.org/downloads/)
 - **UV package manager** - [Installation guide](https://github.com/astral-sh/uv)
-- **Note**: You will need an OPENROUTER_API_KEY (or OpenAI key) set in your environment variables to run the agent successfully.You can use free open router models for testing.
+- **API Key Required**: Set `OPENROUTER_API_KEY` or `OPENAI_API_KEY` in your environment variables. Free OpenRouter models are available for testing.
 
 
 ### Verify Your Setup
@@ -79,8 +77,6 @@ uv --version
 ```
 
 ---
-
-<br/>
 
 ## 📦 Installation
 <details>
@@ -129,8 +125,6 @@ uv sync --dev
 
 ---
 
-<br/>
-
 ## 🚀 Quick Start
 
 ### Option 1: Using Cookiecutter (Recommended)
@@ -145,17 +139,15 @@ uv add cookiecutter
 uvx cookiecutter https://github.com/getbindu/create-bindu-agent.git
 ```
 
-## 🎥 Create Production Ready Agent in Minutes
-
 <div align="center">
   <a href="https://youtu.be/obY1bGOoWG8?si=uEeDb0XWrtYOQTL7" target="_blank">
-    <img src="https://img.youtube.com/vi/obY1bGOoWG8/maxresdefault.jpg" alt="Bindu Demo" width="640" style="border-radius: 10px; box-shadow: 0 4px 8px rgba(0,0,0,0.1);" />
+    <img src="https://img.youtube.com/vi/obY1bGOoWG8/maxresdefault.jpg" alt="Create Production Ready Agent" width="640" style="border-radius: 10px; box-shadow: 0 4px 8px rgba(0,0,0,0.1);" />
   </a>
 </div>
 
-That's it! Your local agent becomes a live, secure, discoverable service. [Learn more →](https://docs.getbindu.com/bindu/create-bindu-agent/overview)
+Your local agent becomes a live, secure, discoverable service. [Learn more →](https://docs.getbindu.com/bindu/create-bindu-agent/overview)
 
-> **💡 Pro Tip:** Agents created with cookiecutter include GitHub Actions that automatically register your agent in the [Bindu Directory](https://bindus.directory) when you push to your repository. No manual registration needed!
+> **💡 Pro Tip:** Agents created with cookiecutter include GitHub Actions that automatically register your agent in the [Bindu Directory](https://bindus.directory) when you push to your repository.
 
 ### Option 2: Manual Setup
 
@@ -199,28 +191,24 @@ def handler(messages: list[dict[str, str]]):
 # Bindu-fy it
 bindufy(config, handler)
 
-# if you want to use tunnel to expose your agent to the internet, use the following command
-#bindufy(config, handler, launch=True)
+# Use tunnel to expose your agent to the internet
+# bindufy(config, handler, launch=True)
 ```
 
 ![Sample Agent](assets/agno-simple.png)
 
 Your agent is now live at `http://localhost:3773` and ready to communicate with other agents.
 
----
-### Beginner: Zero-Config Local Agent (Recommended for First-Time Users)
+### Option 3: Zero-Config Local Agent
 
-If you want to try Bindu without setting up Postgres, Redis, or any cloud services,
-this zero-config example is the fastest way to get started.
-
-It runs entirely locally using in-memory storage and scheduler.
+Try Bindu without setting up Postgres, Redis, or any cloud services. Runs entirely locally using in-memory storage and scheduler.
 
 ```bash
 python examples/beginner_zero_config_agent.py
 ```
 
 
-### Option 3: Minimal Echo Agent (Testing)
+### Option 4: Minimal Echo Agent (Testing)
 
 <details>
 <summary><b>View minimal example</b> (click to expand)</summary>
@@ -243,11 +231,11 @@ config = {
 
 bindufy(config, handler)
 
-# if you want to use tunnel to expose your agent to the internet, use the following command
-#bindufy(config, handler, launch=True)
+# Use tunnel to expose your agent to the internet
+# bindufy(config, handler, launch=True)
 ```
 
-**Run and test:**
+**Run the agent:**
 
 ```bash
 # Start the agent
@@ -402,8 +390,6 @@ Output:
 
 ---
 
-<br/>
-
 ## 🔐 Authentication
 
 Secure API access with **Ory Hydra OAuth2**. Authentication is **optional** - perfect for development without auth.
@@ -464,7 +450,7 @@ Real-time webhook notifications for task updates. No polling required - get inst
 
 Track performance, debug issues, and monitor your agents with **OpenTelemetry** and **Sentry**.
 
-� **[Full Guide →](docs/OBSERVABILITY.md)**
+📖 **[Full Guide →](docs/OBSERVABILITY.md)**
 
 ---
 
@@ -474,23 +460,72 @@ Automatic retry with exponential backoff for resilient agents. Handles transient
 
 📖 **[Full Guide →](https://docs.getbindu.com/bindu/learn/retry/overview)**
 
+---
+
+## 🔑 Decentralized Identifiers (DIDs)
+
+Every Bindu agent has a unique **DID (Decentralized Identifier)** - a cryptographic identity that enables verifiable, secure agent interactions.
+
+**Why DIDs?**
+- **Verifiable identity** - Cryptographically prove agent authenticity
+- **Decentralized trust** - No central authority required
+- **Secure messaging** - Sign and verify agent communications
+- **Payment integration** - Link crypto payments to agent identities
+
+**DID Format:**
+```
+did:bindu:<email>:<agent_name>:<unique_hash>
+```
+
+**Resolve a DID:**
+```bash
+curl -X POST http://localhost:3773/did/resolve \
+  -H "Content-Type: application/json" \
+  -d '{"did": "did:bindu:gaurikasethi88_at_gmail_com:echo_agent:352c17d030fb4bf1ab33d04b102aef3d"}'
+```
+
+**Response:**
+```json
+{
+    "id": "did:bindu:gaurikasethi88_at_gmail_com:echo_agent:352c17d030fb4bf1ab33d04b102aef3d",
+    "authentication": [{
+        "type": "Ed25519VerificationKey2020",
+        "publicKeyBase58": "FiaPSPTW1CrjSr2f53EamW3cxZGhXNeBbSesRD31uqKe"
+    }]
+}
+```
+
+📖 **[Full DID Guide →](docs/DID.md)**
 
 ---
 
-<br/>
+## 🏥 Health Check & Metrics
+
+Monitor your agent's health and performance with built-in endpoints.
+
+**Health Check:**
+```bash
+curl http://localhost:3773/health
+```
+
+**Metrics API:**
+```bash
+curl http://localhost:3773/metrics
+```
+
+📖 **[Full Guide →](docs/HEALTH_METRICS.md)**
+
+---
 
 ## 🎨 Chat UI
 
-Please go to frontend folder and run `npm run dev` to start the frontend server.
-Bindu includes a beautiful chat interface at `http://localhost:5173`
+Bindu includes a beautiful chat interface at `http://localhost:5173`. Navigate to the `frontend` folder and run `npm run dev` to start the server.
 
 <p align="center">
   <img src="assets/agent-ui.png" alt="Bindu Agent UI" width="640" style="border-radius: 10px; box-shadow: 0 4px 8px rgba(0,0,0,0.1);" />
 </p>
 
 ---
-
-<br/>
 
 ## 🌐 Bindu Directory
 
@@ -504,15 +539,13 @@ When you create an agent using the cookiecutter template, it includes a pre-conf
 2. **Push to GitHub** - The GitHub Action triggers automatically
 3. **Your agent appears** in the [Bindu Directory](https://bindus.directory)
 
-> **🔑 Note**: You need to collect the BINDU_PAT_TOKEN from bindus.directory and use it to register your agent.
+> **Note**: Collect your `BINDU_PAT_TOKEN` from [bindus.directory](https://bindus.directory) to register your agent.
 
 ### 📝 Manual Registration
 
-We are working on a manual registration process.
+Manual registration process is currently in development.
 
 ---
-
-<br/>
 
 ## 🌌 The Vision
 
@@ -540,16 +573,13 @@ a peek into the night sky
 
 _Each symbol is an agent — a spark of intelligence. The tiny dot is Bindu, the origin point in the Internet of Agents._
 
-### NightSky Connection [In Progress]
+### NightSky Connection (In Progress)
 
 NightSky enables swarms of agents. Each Bindu is a dot annotating agents with the shared language of A2A, AP2, and X402. Agents can be hosted anywhere—laptops, clouds, or clusters—yet speak the same protocol, trust each other by design, and work together as a single, distributed mind.
 
 > **💭 A Goal Without a Plan Is Just a Wish.**
 
 ---
-
-
-<br/>
 
 ## 🛠️ Supported Agent Frameworks
 
@@ -565,8 +595,6 @@ Want integration with your favorite framework? [Let us know on Discord](https://
 
 ---
 
-<br/>
-
 ## 🧪 Testing
 
 Bindu maintains **64%+ test coverage**:
@@ -577,9 +605,8 @@ uv run pytest -n auto --cov=bindu --cov-report= && coverage report --skip-covere
 
 ---
 
-<br/>
+## 🔧 Troubleshooting
 
-## Troubleshooting
 <details>
 <summary>Common Issues</summary>
 
@@ -608,7 +635,7 @@ Set-ExecutionPolicy RemoteSigned -Scope CurrentUser
 
 </details>
 
-<br/>
+---
 
 ## 🤝 Contributing
 
@@ -627,15 +654,11 @@ pre-commit run --all-files
 
 ---
 
-<br/>
-
 ## 📜 License
 
 Bindu is open-source under the [Apache License 2.0](https://choosealicense.com/licenses/apache-2.0/).
 
 ---
-
-<br/>
 
 ## 💬 Community
 
@@ -645,8 +668,6 @@ We 💛 contributions! Whether you're fixing bugs, improving documentation, or b
 - ⭐ [Star the repository](https://github.com/getbindu/Bindu) if you find it useful!
 
 ---
-
-<br/>
 
 ## 👥 Active Moderators
 
@@ -693,9 +714,7 @@ Our dedicated moderators help maintain a welcoming and productive community:
 
 ---
 
-<br/>
-
-## �� Acknowledgements
+## 🙏 Acknowledgements
 
 Grateful to these projects:
 
@@ -710,14 +729,12 @@ Grateful to these projects:
 
 ---
 
-<br/>
-
 ## 🗺️ Roadmap
 
 - [ ] GRPC transport support
-- [ ] Increase test coverage to 80% - In progress
+- [ ] Increase test coverage to 80% (in progress)
 - [ ] AP2 end-to-end support
-- [ ] DSPy integration - In progress
+- [ ] DSPy integration (in progress)
 - [ ] MLTS support
 - [ ] X402 support with other facilitators
 
@@ -725,15 +742,11 @@ Grateful to these projects:
 
 ---
 
-<br/>
-
 ## 🎓 Workshops
 
 - [AI Native in Action: Agent Symphony](https://www.meetup.com/ai-native-amsterdam/events/311066899/) - [Slides](https://docs.google.com/presentation/d/1SqGXI0Gv_KCWZ1Mw2SOx_kI0u-LLxwZq7lMSONdl8oQ/edit)
 
 ---
-
-<br/>
 
 ## ⭐ Star History
 
