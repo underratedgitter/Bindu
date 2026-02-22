@@ -17,7 +17,7 @@ classifiers = [
 ]
 dependencies = [
     # Core runtime
-    "uvicorn==0.34.1",
+    "uvicorn>=0.35",
     "starlette==0.48.0",
     "pydantic>=2.11.7",
     "loguru==0.7.3",
@@ -76,7 +76,7 @@ agents = [
 
 # Minimal core only (use: pip install bindu[core] --only-deps)
 core = [
-    "uvicorn==0.34.1",
+    "uvicorn>=0.35",
     "starlette==0.48.0",
     "pydantic>=2.11.7",
     "loguru==0.7.3",
