@@ -19,7 +19,7 @@ logger = get_logger("bindu.utils.vault_client")
 
 class VaultClient:
     """Client for interacting with HashiCorp Vault.
-    
+
     Stores and retrieves DID keys and Hydra OAuth credentials to ensure
     agent identity persistence across pod restarts.
     """
@@ -38,12 +38,12 @@ class VaultClient:
         self.vault_url = (vault_url or app_settings.vault.url).rstrip("/")
         self.vault_token = vault_token or app_settings.vault.token
         self.enabled = app_settings.vault.enabled and bool(self.vault_token)
-        
+
         if not self.enabled:
             logger.debug("Vault client disabled or not configured")
         else:
             logger.info(f"Vault client initialized: {self.vault_url}")
-            
+
         # Initialize HTTP client with Vault-specific headers
         self._http_client = AsyncHTTPClient(
             base_url=self.vault_url,
@@ -82,7 +82,7 @@ class VaultClient:
                 path,
                 json=data,
             )
-            
+
             if response.status == 404:
                 logger.error(
                     f"Vault path not found (404): {path}. "
@@ -90,7 +90,7 @@ class VaultClient:
                     f"'vault secrets enable -path=secret kv-v2'"
                 )
                 return None
-            
+
             if response.status >= 400:
                 error_text = await response.text()
                 logger.error(
@@ -104,7 +104,7 @@ class VaultClient:
         except Exception as e:
             logger.error(f"Vault request error: {e}")
             return None
-    
+
     async def close(self) -> None:
         """Close the HTTP client session."""
         await self._http_client.close()
@@ -197,9 +197,7 @@ class VaultClient:
 
         # Use DID (client_id) as the key for stability
         path = f"/v1/secret/data/bindu/hydra/credentials/{credentials.client_id}"
-        data = {
-            "data": credentials.to_dict()
-        }
+        data = {"data": credentials.to_dict()}
 
         result = await self._make_request("POST", path, data)
         if result:
@@ -255,7 +253,7 @@ class VaultClient:
 
         path = f"/v1/secret/metadata/bindu/agents/{agent_id}/did-keys"
         result = await self._make_request("DELETE", path)
-        
+
         if result is not None:
             logger.info(f"✅ DID keys deleted from Vault for agent: {agent_id}")
             return True
@@ -278,12 +276,14 @@ class VaultClient:
 
         path = f"/v1/secret/metadata/bindu/hydra/credentials/{did}"
         result = await self._make_request("DELETE", path)
-        
+
         if result is not None:
             logger.info(f"✅ Hydra credentials deleted from Vault for DID: {did}")
             return True
         else:
-            logger.error(f"Failed to delete Hydra credentials from Vault for DID: {did}")
+            logger.error(
+                f"Failed to delete Hydra credentials from Vault for DID: {did}"
+            )
             return False
 
 
