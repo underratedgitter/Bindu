@@ -18,7 +18,7 @@ that serves AI agents following the A2A (Agent-to-Agent) protocol.
 from __future__ import annotations as _annotations
 
 from contextlib import asynccontextmanager
-from functools import partial
+from functools import wraps
 from typing import Any, AsyncIterator, Callable, Sequence
 from uuid import UUID, uuid4
 
@@ -28,6 +28,8 @@ from starlette.requests import Request
 from starlette.responses import Response
 from starlette.routing import Route
 from starlette.types import Lifespan, Receive, Scope, Send
+from slowapi.errors import RateLimitExceeded
+from slowapi.middleware import SlowAPIMiddleware
 
 from bindu.common.models import (
     AgentManifest,
@@ -40,6 +42,7 @@ from bindu.settings import app_settings
 from bindu.utils.retry import execute_with_retry
 
 from .middleware.auth import HydraMiddleware
+from .middleware.rate_limit import limiter, rate_limit_exceeded_handler
 from .scheduler.base import Scheduler
 from .storage.base import Storage
 from .task_manager import TaskManager
@@ -126,6 +129,12 @@ class BinduApplication(Starlette):
             routes=routes,
             middleware=middleware_list if middleware_list else None,
             lifespan=lifespan,
+        )
+
+        self.state.limiter = limiter
+        self.add_exception_handler(
+            RateLimitExceeded,
+            rate_limit_exceeded_handler,
         )
 
         self.penguin_id = penguin_id
@@ -274,7 +283,9 @@ class BinduApplication(Starlette):
             with_app: Pass app instance to endpoint
         """
         if with_app:
-            handler = partial(self._wrap_with_app, endpoint)
+            @wraps(endpoint)
+            async def handler(request: Request) -> Response:
+                return await self._wrap_with_app(endpoint, request)
         else:
             handler = endpoint
 
@@ -533,6 +544,13 @@ class BinduApplication(Starlette):
             # CORS must be first in middleware chain
             middleware_list.insert(0, cors_middleware)
             logger.info("CORS middleware added to position 0 in middleware chain")
+
+        # Add rate limiting middleware when enabled
+        if app_settings.rate_limit.enabled:
+            rate_limit_middleware = Middleware(SlowAPIMiddleware)
+            insertion_index = 1 if cors_origins else 0
+            middleware_list.insert(insertion_index, rate_limit_middleware)
+            logger.info("Rate limiting middleware enabled")
 
         # Add X402 middleware if configured
         if x402_ext and payment_requirements:

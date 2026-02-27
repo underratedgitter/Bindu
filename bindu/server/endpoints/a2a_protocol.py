@@ -20,10 +20,12 @@ from bindu.extensions.x402.extension import (
     is_activation_requested as x402_is_requested,
     add_activation_header as x402_add_header,
 )
+from bindu.server.middleware.rate_limit import A2A_LIMIT_RULE, limit_endpoint
 
 logger = get_logger("bindu.server.endpoints.a2a_protocol")
 
 
+@limit_endpoint(A2A_LIMIT_RULE)
 async def agent_run_endpoint(app: BinduApplication, request: Request) -> Response:
     """Handle A2A protocol requests for agent-to-agent communication.
 

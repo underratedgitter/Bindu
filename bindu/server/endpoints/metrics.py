@@ -6,6 +6,7 @@ from starlette.requests import Request
 from starlette.responses import Response
 
 from bindu.server.applications import BinduApplication
+from bindu.server.middleware.rate_limit import DEFAULT_LIMIT_RULE, limit_endpoint
 from bindu.server.metrics import get_metrics
 from bindu.utils.logging import get_logger
 
@@ -53,6 +54,7 @@ async def _update_agent_metrics(app: BinduApplication) -> None:
             logger.debug(f"Failed to update agent metrics: {e}")
 
 
+@limit_endpoint(DEFAULT_LIMIT_RULE)
 async def metrics_endpoint(app: BinduApplication, request: Request) -> Response:
     """Prometheus metrics endpoint.
 

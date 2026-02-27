@@ -14,6 +14,7 @@ from bindu.extensions.x402.extension import (
     add_activation_header as x402_add_header,
 )
 from bindu.server.applications import BinduApplication
+from bindu.server.middleware.rate_limit import DEFAULT_LIMIT_RULE, limit_endpoint
 from bindu.utils.request_utils import handle_endpoint_errors
 from bindu.utils.logging import get_logger
 from bindu.utils.request_utils import get_client_ip
@@ -109,6 +110,7 @@ def create_agent_card(app: BinduApplication) -> AgentCard:
 
 
 @handle_endpoint_errors("agent card")
+@limit_endpoint(DEFAULT_LIMIT_RULE)
 async def agent_card_endpoint(app: BinduApplication, request: Request) -> Response:
     """Serve the agent card JSON schema.
 

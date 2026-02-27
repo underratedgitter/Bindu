@@ -934,6 +934,22 @@ class SentrySettings(BaseSettings):
     debug: bool = False
 
 
+class RateLimitSettings(BaseSettings):
+    """HTTP rate limiting configuration settings."""
+
+    model_config = SettingsConfigDict(
+        env_file=".env",
+        env_prefix="RATE_LIMIT__",
+        extra="allow",
+    )
+
+    enabled: bool = True
+    default_limit: str = "60/minute"
+    a2a_limit: str = "30/minute"
+    negotiation_limit: str = "10/minute"
+    burst_limit: str = "5/second"
+
+
 class Settings(BaseSettings):
     """Main settings class that aggregates all configuration components."""
 
@@ -961,6 +977,7 @@ class Settings(BaseSettings):
     retry: RetrySettings = RetrySettings()
     negotiation: NegotiationSettings = NegotiationSettings()
     sentry: SentrySettings = SentrySettings()
+    rate_limit: RateLimitSettings = RateLimitSettings()
 
 
 app_settings = Settings()

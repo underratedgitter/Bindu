@@ -5,6 +5,7 @@ from __future__ import annotations
 from functools import wraps
 from typing import Any, Callable, Tuple, Type, get_args
 
+from slowapi.errors import RateLimitExceeded
 from starlette.requests import Request
 from starlette.responses import JSONResponse, Response
 
@@ -103,6 +104,8 @@ def handle_endpoint_errors(endpoint_name: str) -> Callable:
 
             try:
                 return await func(*args, **kwargs)
+            except RateLimitExceeded:
+                raise
             except Exception as e:
                 logger.error(
                     f"Error serving {endpoint_name} to {client_ip}: {e}", exc_info=True

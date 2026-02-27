@@ -31,6 +31,7 @@ from bindu.utils.request_utils import handle_endpoint_errors, get_client_ip
 from bindu.utils.logging import get_logger
 from bindu.utils.capabilities import get_x402_extension_from_capabilities
 from bindu.settings import app_settings
+from bindu.server.middleware.rate_limit import NEGOTIATION_LIMIT_RULE, limit_endpoint
 
 logger = get_logger("bindu.server.endpoints.negotiation")
 
@@ -79,6 +80,7 @@ def _get_or_create_calculator(app: BinduApplication) -> CapabilityCalculator:
 
 
 @handle_endpoint_errors("task assessment")
+@limit_endpoint(NEGOTIATION_LIMIT_RULE)
 async def negotiation_endpoint(app: BinduApplication, request: Request) -> Response:
     """Assess agent's capability to handle a task.
 

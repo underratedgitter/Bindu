@@ -15,6 +15,7 @@ from bindu.extensions.x402.extension import (
     add_activation_header as x402_add_header,
 )
 from bindu.server.applications import BinduApplication
+from bindu.server.middleware.rate_limit import DEFAULT_LIMIT_RULE, limit_endpoint
 from bindu.utils.request_utils import handle_endpoint_errors
 from bindu.utils.logging import get_logger
 from bindu.utils.request_utils import extract_error_fields, get_client_ip, jsonrpc_error
@@ -24,6 +25,7 @@ logger = get_logger("bindu.server.endpoints.skills")
 
 
 @handle_endpoint_errors("skills list")
+@limit_endpoint(DEFAULT_LIMIT_RULE)
 async def skills_list_endpoint(app: BinduApplication, request: Request) -> Response:
     """List all skills available on this agent.
 
@@ -72,6 +74,7 @@ async def skills_list_endpoint(app: BinduApplication, request: Request) -> Respo
 
 
 @handle_endpoint_errors("skill detail")
+@limit_endpoint(DEFAULT_LIMIT_RULE)
 async def skill_detail_endpoint(app: BinduApplication, request: Request) -> Response:
     """Get detailed information about a specific skill.
 
@@ -119,6 +122,7 @@ async def skill_detail_endpoint(app: BinduApplication, request: Request) -> Resp
 
 
 @handle_endpoint_errors("skill documentation")
+@limit_endpoint(DEFAULT_LIMIT_RULE)
 async def skill_documentation_endpoint(
     app: BinduApplication, request: Request
 ) -> Response:

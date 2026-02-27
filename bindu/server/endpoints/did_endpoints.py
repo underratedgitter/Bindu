@@ -13,6 +13,7 @@ from bindu.common.protocol.types import (
     JSONParseError,
 )
 from bindu.server.applications import BinduApplication
+from bindu.server.middleware.rate_limit import DEFAULT_LIMIT_RULE, limit_endpoint
 from bindu.utils.request_utils import handle_endpoint_errors
 from bindu.utils.logging import get_logger
 from bindu.utils.request_utils import extract_error_fields, get_client_ip, jsonrpc_error
@@ -21,6 +22,7 @@ logger = get_logger("bindu.server.endpoints.did_endpoints")
 
 
 @handle_endpoint_errors("DID resolve")
+@limit_endpoint(DEFAULT_LIMIT_RULE)
 async def did_resolve_endpoint(app: BinduApplication, request: Request) -> Response:
     """Resolve DID and return full W3C-compliant DID document."""
     client_ip = get_client_ip(request)

@@ -26,6 +26,11 @@ from x402.paywall import get_paywall_html
 from x402.types import PaymentPayload
 
 from bindu.server.applications import BinduApplication
+from bindu.server.middleware.rate_limit import (
+    A2A_LIMIT_RULE,
+    DEFAULT_LIMIT_RULE,
+    limit_endpoint,
+)
 from bindu.utils.logging import get_logger
 from bindu.utils.request_utils import handle_endpoint_errors
 
@@ -33,6 +38,7 @@ logger = get_logger("bindu.server.endpoints.payment_sessions")
 
 
 @handle_endpoint_errors("start payment session")
+@limit_endpoint(A2A_LIMIT_RULE)
 async def start_payment_session_endpoint(
     app: BinduApplication, request: Request
 ) -> Response:
@@ -68,6 +74,7 @@ async def start_payment_session_endpoint(
 
 
 @handle_endpoint_errors("payment capture")
+@limit_endpoint(DEFAULT_LIMIT_RULE)
 async def payment_capture_endpoint(app: BinduApplication, request: Request) -> Response:
     """Browser page to capture payment.
 
@@ -149,6 +156,7 @@ async def payment_capture_endpoint(app: BinduApplication, request: Request) -> R
 
 
 @handle_endpoint_errors("payment status")
+@limit_endpoint(DEFAULT_LIMIT_RULE)
 async def payment_status_endpoint(app: BinduApplication, request: Request) -> Response:
     """Get payment status and token.
 

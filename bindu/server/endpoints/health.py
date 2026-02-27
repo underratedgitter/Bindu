@@ -9,6 +9,7 @@ from starlette.responses import JSONResponse
 
 from bindu import __version__
 from bindu.server.applications import BinduApplication
+from bindu.server.middleware.rate_limit import DEFAULT_LIMIT_RULE, limit_endpoint
 from bindu.utils.request_utils import handle_endpoint_errors, get_client_ip
 from bindu.utils.logging import get_logger
 import os
@@ -22,6 +23,7 @@ _start_time = monotonic()
 
 
 @handle_endpoint_errors("health check")
+@limit_endpoint(DEFAULT_LIMIT_RULE)
 async def health_endpoint(app: BinduApplication, request: Request) -> JSONResponse:
     """Comprehensive health check endpoint.
 

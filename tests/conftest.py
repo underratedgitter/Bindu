@@ -254,6 +254,36 @@ def event_loop():
     loop.close()
 
 
+@pytest.fixture(autouse=True)
+def reset_rate_limiter_state():
+    """Reset global rate limiter storage between tests for isolation."""
+    try:
+        from bindu.server.middleware.rate_limit import limiter
+
+        storage = getattr(limiter, "_storage", None)
+        if storage is not None:
+            if hasattr(storage, "reset"):
+                storage.reset()
+            elif hasattr(storage, "clear"):
+                storage.clear()
+    except Exception:
+        pass
+
+    yield
+
+    try:
+        from bindu.server.middleware.rate_limit import limiter
+
+        storage = getattr(limiter, "_storage", None)
+        if storage is not None:
+            if hasattr(storage, "reset"):
+                storage.reset()
+            elif hasattr(storage, "clear"):
+                storage.clear()
+    except Exception:
+        pass
+
+
 @pytest_asyncio.fixture
 async def storage() -> InMemoryStorage:
     """Create an in-memory storage instance."""
