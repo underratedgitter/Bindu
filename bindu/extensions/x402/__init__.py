@@ -24,6 +24,13 @@ In Bindu, agents can use x402 to monetize their services, pay for resources, and
 participate in the emerging agent economy. The protocol supports various payment
 methods and provides strong guarantees through cryptographic mandates.
 
+Supported Networks:
+-------------------
+- **EVM L2s**: Base, Optimism, Arbitrum (low fees, fast finality)
+- **EVM Sidechains**: Polygon (very low fees)
+- **Ethereum L1**: For high-value transactions requiring maximum security
+- **Lightning Network**: Bitcoin micropayments via L402 protocol
+
 How It Works:
 -------------
 1. **Intent Mandates**: Users grant agents permission to spend within defined limits
@@ -32,21 +39,62 @@ How It Works:
 4. **Payment Execution**: Transactions are executed with cryptographic proof
 5. **Settlement**: Payments are settled through various payment methods
 
+Network Selection:
+------------------
+The system can automatically select the optimal network based on:
+- Transaction size (Lightning for micropayments, L2s for standard, L1 for large)
+- Speed requirements (Lightning/L2s for fast, L1 for security)
+- Fee optimization (Polygon/Lightning for lowest fees)
+
 This Module Provides:
 ---------------------
+- Multi-network payment configuration
+- Automatic network selection based on transaction characteristics
+- Lightning Network (L402) support for Bitcoin micropayments
 - Payment request and response handling
-- Cart and intent mandate management
-- Payment method negotiation
-- Cryptographic mandate verification
 - Integration with A2A protocol for seamless agent payments
 
 Official Specification: https://www.x402.org
-
-Inspired by the x402 protocol for enabling economic coordination between autonomous agents.
 """
 
 from __future__ import annotations
 
+from .lightning import (
+    Invoice,
+    L402Token,
+    create_challenge,
+    sats_usd,
+    usd_sats,
+    verify,
+)
+from .networks import (
+    NETWORKS,
+    Network,
+    NetworkType,
+    PaymentRail,
+    get,
+    mainnets,
+    select,
+    supports,
+    testnets,
+)
 from .x402_agent_extension import X402AgentExtension
 
-__all__: list[str] = ["X402AgentExtension"]
+__all__ = [
+    "Invoice",
+    "L402Token",
+    "NETWORKS",
+    "Network",
+    "NetworkType",
+    "PaymentRail",
+    "X402AgentExtension",
+    "create_challenge",
+    "get",
+    "mainnets",
+    "sats_usd",
+    "select",
+    "supports",
+    "testnets",
+    "usd_sats",
+    "verify",
+]

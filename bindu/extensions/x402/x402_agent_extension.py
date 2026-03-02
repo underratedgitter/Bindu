@@ -1,78 +1,101 @@
-"""X402 Agent Extension for payment management.
-
-This module provides the X402AgentExtension class that wraps payment configuration
-and integrates with the x402 protocol for agent monetization.
-"""
+"""X402 Agent Extension."""
 
 from __future__ import annotations
 
+from decimal import Decimal
 from functools import cached_property
-from typing import Optional
 
 from bindu.common.protocol.types import AgentExtension
 from bindu.settings import app_settings
-from bindu.utils.logging import get_logger
-
-logger = get_logger("bindu.x402_agent_extension")
+from .networks import Network, NETWORKS, PaymentRail, get, select
 
 
 class X402AgentExtension:
-    """X402 extension for agent payment management.
+    """X402 payment extension with multi-network support."""
 
-    This class manages payment requirements for an agent, including pricing,
-    token type, and network configuration. It integrates with the x402 protocol
-    to enable decentralized payments on blockchain networks.
-    """
+    __slots__ = (
+        "amount",
+        "token",
+        "network",
+        "pay_to",
+        "required",
+        "desc",
+        "allowed",
+        "auto_select",
+        "ln_pubkey",
+    )
 
     def __init__(
         self,
         amount: str,
         token: str = "USDC",
-        network: str = "base-sepolia",
+        network: str = "base",
         pay_to_address: str = "",
         required: bool = True,
-        description: Optional[str] = None,
+        description: str = None,
+        allowed_networks: list[str] = None,
+        auto_select_network: bool = False,
+        lightning_pubkey: str = None,
     ):
-        """Initialize the X402 extension with payment configuration.
-
-        Args:
-            amount: Payment amount in atomic units (e.g., "1000000" for 1 USDC)
-                   or USD string (e.g., "$1.00")
-            token: Token symbol (default: "USDC")
-            network: Blockchain network (default: "base-sepolia")
-            pay_to_address: Payment recipient address (required for payments)
-            required: Whether payment is mandatory (default: True)
-            description: Optional description for agent card
-
-        Raises:
-            ValueError: If pay_to_address is empty when required=True
-        """
-        if required and not pay_to_address:
-            raise ValueError("pay_to_address is required when payment is enabled")
-
-        self.amount = amount
-        self.token = token
-        self.network = network
-        self.pay_to_address = pay_to_address
-        self.required = required
-        self._description = description
-
-    def __repr__(self) -> str:
-        """Return string representation of the extension."""
-        return (
-            f"X402AgentExtension(amount={self.amount}, "
-            f"token={self.token}, network={self.network}, "
-            f"pay_to_address={self.pay_to_address[:10]}..., "
-            f"required={self.required})"
+        net = get(network)
+        if not net:
+            raise ValueError(f"Unknown network: {network}")
+        if required and not pay_to_address and net.rail != PaymentRail.L402:
+            raise ValueError("pay_to_address required for EVM networks")
+        self.amount, self.token, self.network, self.pay_to = (
+            amount,
+            token,
+            network,
+            pay_to_address,
         )
+        self.required, self.desc = required, description
+        self.allowed = set(allowed_networks) if allowed_networks else {network}
+        self.auto_select, self.ln_pubkey = auto_select_network, lightning_pubkey
+        for n in self.allowed:
+            if n not in NETWORKS:
+                raise ValueError(f"Unknown network: {n}")
 
     @cached_property
     def agent_extension(self) -> AgentExtension:
-        """Get agent extension configuration for capabilities.
+        return AgentExtension(uri=app_settings.x402.extension_uri)
 
-        Returns:
-            AgentExtension TypedDict with x402 extension URI
-        """
-        return AgentExtension(
-            uri=app_settings.x402.extension_uri,
-        )
+    @property
+    def net(self) -> Network:
+        return NETWORKS[self.network]
+
+    @property
+    def amount_usd(self) -> Decimal:
+        if self.amount.startswith("$"):
+            return Decimal(self.amount[1:])
+        return Decimal(self.amount) / Decimal("1e6")
+
+    @property
+    def is_lightning(self) -> bool:
+        return self.net.rail == PaymentRail.L402
+
+    @property
+    def pay_to_address(self) -> str:
+        """Backward-compatible alias for pay_to."""
+        return self.pay_to
+
+    def select_network(self, amt: Decimal = None, fast: bool = False) -> Network:
+        """Select optimal network for payment."""
+        if self.auto_select:
+            return select(amt or self.amount_usd, self.token, fast, self.allowed)
+        return self.net
+
+    def config(self, net: str = None) -> dict:
+        """Get payment configuration for network."""
+        n = NETWORKS.get(net) or self.net
+        cfg = {
+            "amount": self.amount,
+            "token": self.token,
+            "network": n.name,
+            "chain_id": n.chain_id,
+            "rail": n.rail.value,
+        }
+        if n.rail == PaymentRail.L402:
+            cfg["ln_pubkey"] = self.ln_pubkey
+        else:
+            cfg["pay_to"] = self.pay_to
+        return cfg

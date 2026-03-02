@@ -279,7 +279,12 @@ class ObservabilitySettings(BaseSettings):
 
 
 class X402Settings(BaseSettings):
-    """x402 payments configuration settings."""
+    """x402 payments configuration settings.
+
+    Supports multiple networks including:
+    - EVM L2s: Base, Optimism, Arbitrum, Polygon
+    - Lightning Network: For Bitcoin micropayments (L402 protocol)
+    """
 
     model_config = SettingsConfigDict(
         env_file=".env",
@@ -289,7 +294,7 @@ class X402Settings(BaseSettings):
 
     provider: str = "coinbase"
     facilitator_url: str = "https://x402.org/facilitator"
-    default_network: str = "base-sepolia"
+    default_network: str = "base"  # Changed from base-sepolia to base mainnet
     pay_to_env: str = "X402_PAY_TO"
     max_timeout_seconds: int = 600
 
@@ -303,12 +308,46 @@ class X402Settings(BaseSettings):
         # "message/stream",  # Uncomment if streaming should require payment
     ]
 
+    # Multi-network configuration
+    enabled_networks: list[str] = [
+        "base",
+        "optimism",
+        "arbitrum",
+        "polygon",
+        "lightning",
+        "base-sepolia",  # Testnet
+    ]
+
+    # Network-specific facilitator URLs
+    facilitator_urls_by_network: dict[str, str] = {
+        "base": "https://x402.org/facilitator",
+        "optimism": "https://x402.org/facilitator",
+        "arbitrum": "https://x402.org/facilitator",
+        "polygon": "https://x402.org/facilitator",
+        "ethereum": "https://x402.org/facilitator",
+        "base-sepolia": "https://x402.org/facilitator",
+    }
+
+    # Lightning Network (L402) configuration
+    lightning_enabled: bool = True
+    lightning_provider: str = "maximumsats"  # or "lnd", "cln"
+    lightning_api_url: str = "https://maximumsats.com/api"
+    lightning_wot_url: str = "https://wot.klabo.world"
+    lightning_default_expiry_seconds: int = 3600
+    lightning_max_fee_sat: int = 100
+
+    # Network selection preferences
+    auto_select_network: bool = False  # Auto-select optimal network per request
+    prefer_lightning_below_usd: str = "0.10"  # Prefer Lightning for micropayments
+    prefer_l2_below_usd: str = "100.00"  # Prefer L2s for standard payments
+
     # Metadata keys
     meta_status_key: str = "x402.payment.status"
     meta_required_key: str = "x402.payment.required"
     meta_payload_key: str = "x402.payment.payload"
     meta_receipts_key: str = "x402.payment.receipts"
     meta_error_key: str = "x402.payment.error"
+    meta_network_key: str = "x402.payment.network"  # Track which network was used
 
     # Status values
     status_required: str = "payment-required"
@@ -317,29 +356,91 @@ class X402Settings(BaseSettings):
     status_completed: str = "payment-completed"
     status_failed: str = "payment-failed"
 
-    # RPC URLs by network
-    # Always look https://chainlist.org/chain/84532?testnets=true for latest RPC URLs
+    # RPC URLs by network (EVM chains)
     rpc_urls_by_network: dict[str, list[str]] = {
+        # Testnets
         "base-sepolia": [
-            "https://sepolia.base.org",  # Official Base Sepolia
-            "https://base-sepolia.public.blastapi.io",  # Blast public API
-            "https://rpc.ankr.com/base_sepolia",  # Ankr public
-            "https://base-sepolia.blockpi.network/v1/rpc/public",  # BlockPI public
-            "https://base-sepolia-rpc.publicnode.com",  # PublicNode
+            "https://sepolia.base.org",
+            "https://base-sepolia.public.blastapi.io",
+            "https://rpc.ankr.com/base_sepolia",
+            "https://base-sepolia.blockpi.network/v1/rpc/public",
+            "https://base-sepolia-rpc.publicnode.com",
         ],
+        "optimism-sepolia": [
+            "https://sepolia.optimism.io",
+            "https://optimism-sepolia.blockpi.network/v1/rpc/public",
+        ],
+        "arbitrum-sepolia": [
+            "https://sepolia-rollup.arbitrum.io/rpc",
+            "https://arbitrum-sepolia.blockpi.network/v1/rpc/public",
+        ],
+        "polygon-amoy": [
+            "https://rpc-amoy.polygon.technology",
+            "https://polygon-amoy.blockpi.network/v1/rpc/public",
+        ],
+        # Mainnets
         "base": [
-            "https://mainnet.base.org",  # Official Base Mainnet
-            "https://base.blockpi.network/v1/rpc/public",  # BlockPI public
-            "https://base-rpc.publicnode.com",  # PublicNode
-            "https://1rpc.io/base",  # 1RPC public
-            "https://base.drpc.org",  # DRPC public
+            "https://mainnet.base.org",
+            "https://base.blockpi.network/v1/rpc/public",
+            "https://base-rpc.publicnode.com",
+            "https://1rpc.io/base",
+            "https://base.drpc.org",
+        ],
+        "optimism": [
+            "https://mainnet.optimism.io",
+            "https://optimism.blockpi.network/v1/rpc/public",
+            "https://optimism-rpc.publicnode.com",
+            "https://1rpc.io/op",
+            "https://optimism.drpc.org",
+        ],
+        "arbitrum": [
+            "https://arb1.arbitrum.io/rpc",
+            "https://arbitrum.blockpi.network/v1/rpc/public",
+            "https://arbitrum-one-rpc.publicnode.com",
+            "https://1rpc.io/arb",
+            "https://arbitrum.drpc.org",
+        ],
+        "polygon": [
+            "https://polygon-rpc.com",
+            "https://polygon.blockpi.network/v1/rpc/public",
+            "https://polygon-pokt.nodies.app",
+            "https://1rpc.io/matic",
+            "https://polygon.drpc.org",
         ],
         "ethereum": [
-            "https://eth.llamarpc.com",  # LlamaRPC
-            "https://ethereum-rpc.publicnode.com",  # PublicNode
-            "https://rpc.ankr.com/eth",  # Ankr public
-            "https://ethereum.public.blockpi.network/v1/rpc/public",  # BlockPI
+            "https://eth.llamarpc.com",
+            "https://ethereum-rpc.publicnode.com",
+            "https://rpc.ankr.com/eth",
+            "https://ethereum.blockpi.network/v1/rpc/public",
+            "https://1rpc.io/eth",
         ],
+    }
+
+    # Token contract addresses by network
+    token_addresses: dict[str, dict[str, str]] = {
+        "base": {
+            "USDC": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
+            "USDT": "0xfde4C96c8593536E31F229EA8f37b2ADa2699bb2",
+        },
+        "optimism": {
+            "USDC": "0x0b2C639c533813f4Aa9D7837CAf62653d097Ff85",
+            "USDT": "0x94b008aA00579c1307B0EF2c499aD98a8ce58e58",
+        },
+        "arbitrum": {
+            "USDC": "0xaf88d065e77c8cC2239327C5EDb3A432268e5831",
+            "USDT": "0xFd086bC7CD5C481DCC9C85ebE478A1C0b69FCbb9",
+        },
+        "polygon": {
+            "USDC": "0x3c499c542cEF5E3811e1192ce70d8cC03d5c3359",
+            "USDT": "0xc2132D05D31c914a87C6611C10748AEb04B58e8F",
+        },
+        "ethereum": {
+            "USDC": "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48",
+            "USDT": "0xdAC17F958D2ee523a2206206994597C13D831ec7",
+        },
+        "base-sepolia": {
+            "USDC": "0x036CbD53842c5426634e7929541eC2318f3dCF7e",
+        },
     }
 
 
