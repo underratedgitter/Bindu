@@ -356,6 +356,7 @@ class AgentSettings(BaseSettings):
     # Maps JSON-RPC method names to task_manager handler method names
     method_handlers: dict[str, str] = {
         "message/send": "send_message",
+        "message/stream": "stream_message",
         "tasks/get": "get_task",
         "tasks/cancel": "cancel_task",
         "tasks/list": "list_tasks",
@@ -384,6 +385,11 @@ class AgentSettings(BaseSettings):
             "rejected",  # Rejected by agent
         }
     )
+
+    # message/stream polling behavior
+    stream_poll_interval_seconds: float = 0.1
+    stream_missing_task_retries: int = 2
+    stream_missing_task_retry_delay_seconds: float = 0.05
 
     # Structured Response System Prompt
     # This prompt instructs LLMs to return structured JSON responses for state transitions
