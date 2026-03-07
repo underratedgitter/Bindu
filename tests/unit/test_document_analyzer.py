@@ -210,12 +210,16 @@ class TestGetFileBytes:
 MOCK_AGENT_RESPONSE = "This document discusses neural network training methodologies."
 
 
-def make_file_part(file_bytes: bytes, mime: str) -> dict:
+def make_file_part(file_bytes: bytes, mime: str, name: str = "test") -> dict:
+    # include `text` to satisfy protocol validation; tests may not exercise
+    # the endpoint layer but it's good to mirror real messages
     return {
         "kind": "file",
+        "text": name,
         "file": {
             "bytes": b64(file_bytes),
             "mimeType": mime,
+            "name": name,
         },
     }
 
@@ -317,7 +321,8 @@ class TestHandler:
         """Unsupported MIME should record an error string but not crash handler."""
         bad_file_part = {
             "kind": "file",
-            "file": {"bytes": b64(b"fake data"), "mimeType": "image/png"},
+            "text": "bad.png",
+            "file": {"bytes": b64(b"fake data"), "mimeType": "image/png", "name": "bad.png"},
         }
         messages = [{"parts": [make_text_part("analyze this"), bad_file_part]}]
         # The handler catches the exception and appends an error string
