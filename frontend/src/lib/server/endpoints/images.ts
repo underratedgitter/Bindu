@@ -1,4 +1,4 @@
-import type { Sharp } from "sharp";
+import type { Metadata, Sharp } from "sharp";
 import sharp from "sharp";
 import type { MessageFile } from "$lib/types/Message";
 import { z, type util } from "zod";
@@ -46,7 +46,7 @@ export function makeImageProcessor<TMimeType extends string = string>(
 		const { mime, value } = file;
 
 		const buffer = Buffer.from(value, "base64");
-		let sharpInst = sharp(buffer);
+		let sharpInst = sharp(buffer, { animated: true });
 
 		const metadata = await sharpInst.metadata();
 		if (!metadata) throw Error("Failed to read image metadata");
@@ -58,7 +58,8 @@ export function makeImageProcessor<TMimeType extends string = string>(
 
 		const outputMime = chooseMimeType(supportedMimeTypes, preferredMimeType, mime, {
 			preferSizeReduction: tooLargeInBytes,
-			isBlockListedMime: isBlockListedMime(mime ,metadata.compression),
+			isBlockListedMime: isBlockListedMime(mime, metadata.compression),
+			isAnimated: isAnimatedImage(mime,metadata),
 		});
 
 		// Resize if necessary
@@ -80,7 +81,7 @@ export function makeImageProcessor<TMimeType extends string = string>(
 		// We always want to convert the image when the file was too large in bytes
 		// so we can guarantee that ideal options are used, which are expected when
 		// choosing the image size
-		if (outputMime !== mime || tooLargeInBytes) {
+		if (outputMime !== mime || (tooLargeInBytes && !isAnimatedImage)) {
 			sharpInst = convertImage(sharpInst, outputMime);
 		}
 
@@ -116,7 +117,9 @@ const isBlockListedMime = (mime: string,compression?:string): boolean =>{
 	return compression.toLowerCase() !== 'av1';
 
 }
-// TODO: consider what to do about animated formats: apng, gif, animated webp, ...
+function isAnimatedImage(mime: string, metadata: Metadata): boolean {
+	return mime === "image/gif" || (metadata.pages ?? 1) > 1;
+}
 
 /** Sorted from largest to smallest */
 const mimesBySizeDesc = [
@@ -136,7 +139,11 @@ function chooseMimeType<T extends readonly string[]>(
 	supportedMimes: T,
 	preferredMime: string,
 	mime: string,
-	{ preferSizeReduction , isBlockListedMime }: { preferSizeReduction: boolean , isBlockListedMime:boolean }
+	{
+		preferSizeReduction,
+		isBlockListedMime,
+		isAnimated,
+	}: { preferSizeReduction: boolean; isBlockListedMime: boolean; isAnimated: boolean }
 ): T[number] {
 	if (!supportedMimes.includes(preferredMime)) {
 		const supportedMimesStr = supportedMimes.join(", ");
@@ -147,6 +154,12 @@ function chooseMimeType<T extends readonly string[]>(
 
 	const [type] = mime.split("/");
 	if (type !== "image") throw Error(`Received non-image mime type: ${mime}`);
+	if (isAnimated) {
+		if (!supportedMimes.includes(mime)) {
+			throw Error(`Animated image format is not supported: ${mime}`);
+		}
+		return mime;
+	}
 
 	if (supportedMimes.includes(mime) && !preferSizeReduction) return mime;
 
