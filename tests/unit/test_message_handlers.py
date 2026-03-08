@@ -35,7 +35,6 @@ from bindu.server.storage.memory_storage import InMemoryStorage
 from tests.mocks import MockManifest
 from tests.utils import (
     assert_jsonrpc_success,
-    assert_jsonrpc_error,
     create_test_message,
 )
 

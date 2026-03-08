@@ -51,6 +51,15 @@ class RedisScheduler(Scheduler):
         retry_on_timeout: bool = True,
         poll_timeout: int = 1,
     ):
+        """Initialize the Redis scheduler.
+
+        Args:
+            redis_url: Redis connection URL
+            queue_name: Name of the Redis queue for task operations
+            max_connections: Maximum number of Redis connections in the pool
+            retry_on_timeout: Whether to retry operations on timeout
+            poll_timeout: Timeout in seconds for blocking pop operations
+        """
         self.redis_url = redis_url
         self.queue_name = queue_name
         self.max_connections = max_connections
@@ -59,6 +68,7 @@ class RedisScheduler(Scheduler):
         self._redis_client: redis.Redis | None = None
 
     async def __aenter__(self):
+        """Enter async context manager and initialize Redis connection."""
         self._redis_client = redis.from_url(
             self.redis_url,
             encoding="utf-8",
@@ -71,10 +81,13 @@ class RedisScheduler(Scheduler):
             logger.info(f"Redis scheduler connected to {self.redis_url}")
         except redis.RedisError as e:
             logger.error(f"Failed to connect to Redis: {e}")
-            raise ConnectionError(f"Unable to connect to Redis at {self.redis_url}: {e}")
+            raise ConnectionError(
+                f"Unable to connect to Redis at {self.redis_url}: {e}"
+            )
         return self
 
     async def __aexit__(self, exc_type: Any, exc_value: Any, traceback: Any):
+        """Exit async context manager and close Redis connection."""
         if self._redis_client:
             await self._redis_client.aclose()
             logger.info("Redis scheduler connection closed")
@@ -82,6 +95,11 @@ class RedisScheduler(Scheduler):
 
     @retry_scheduler_operation()
     async def run_task(self, params: TaskSendParams) -> None:
+        """Schedule a task to run.
+
+        Args:
+            params: Parameters for the task to run
+        """
         logger.debug(f"Scheduling run task: {params}")
         trace_id, span_id = _get_trace_context()
         task_operation = _RunTask(
@@ -91,6 +109,11 @@ class RedisScheduler(Scheduler):
 
     @retry_scheduler_operation()
     async def cancel_task(self, params: TaskIdParams) -> None:
+        """Schedule a task to be cancelled.
+
+        Args:
+            params: Parameters identifying the task to cancel
+        """
         logger.debug(f"Scheduling cancel task: {params}")
         trace_id, span_id = _get_trace_context()
         task_operation = _CancelTask(
@@ -100,6 +123,11 @@ class RedisScheduler(Scheduler):
 
     @retry_scheduler_operation()
     async def pause_task(self, params: TaskIdParams) -> None:
+        """Schedule a task to be paused.
+
+        Args:
+            params: Parameters identifying the task to pause
+        """
         logger.debug(f"Scheduling pause task: {params}")
         trace_id, span_id = _get_trace_context()
         task_operation = _PauseTask(
@@ -109,6 +137,11 @@ class RedisScheduler(Scheduler):
 
     @retry_scheduler_operation()
     async def resume_task(self, params: TaskIdParams) -> None:
+        """Schedule a task to be resumed.
+
+        Args:
+            params: Parameters identifying the task to resume
+        """
         logger.debug(f"Scheduling resume task: {params}")
         trace_id, span_id = _get_trace_context()
         task_operation = _ResumeTask(
@@ -117,10 +150,22 @@ class RedisScheduler(Scheduler):
         await self._push_task_operation(task_operation)
 
     async def receive_task_operations(self) -> AsyncIterator[TaskOperation]:
-        if not self._redis_client:
-            raise RuntimeError("Redis client not initialized. Use async context manager.")
+        """Receive task operations from the Redis queue.
 
-        logger.info(f"Starting to receive task operations from queue: {self.queue_name}")
+        Yields:
+            TaskOperation: Task operations from the queue
+
+        Raises:
+            RuntimeError: If Redis client is not initialized
+        """
+        if not self._redis_client:
+            raise RuntimeError(
+                "Redis client not initialized. Use async context manager."
+            )
+
+        logger.info(
+            f"Starting to receive task operations from queue: {self.queue_name}"
+        )
 
         while True:
             try:
@@ -131,7 +176,9 @@ class RedisScheduler(Scheduler):
                 if result:
                     _, task_data = result
                     task_operation = self._deserialize_task_operation(task_data)
-                    logger.debug(f"Received task operation: {task_operation['operation']}")
+                    logger.debug(
+                        f"Received task operation: {task_operation['operation']}"
+                    )
                     yield task_operation
 
             except redis.RedisError as e:
@@ -148,12 +195,16 @@ class RedisScheduler(Scheduler):
 
     async def _push_task_operation(self, task_operation: TaskOperation) -> None:
         if not self._redis_client:
-            raise RuntimeError("Redis client not initialized. Use async context manager.")
+            raise RuntimeError(
+                "Redis client not initialized. Use async context manager."
+            )
 
         try:
             serialized_task = self._serialize_task_operation(task_operation)
             await self._redis_client.rpush(self.queue_name, serialized_task)
-            logger.debug(f"Pushed task operation to queue: {task_operation['operation']}")
+            logger.debug(
+                f"Pushed task operation to queue: {task_operation['operation']}"
+            )
         except redis.RedisError as e:
             logger.error(f"Failed to push task operation to Redis: {e}")
             raise
@@ -163,7 +214,7 @@ class RedisScheduler(Scheduler):
 
     def _serialize_task_operation(self, task_operation: TaskOperation) -> str:
         """Serialize task operation to JSON string.
-        
+
         Optimized by utilizing the standard library's default string conversion
         for UUIDs, completely eliminating the slow manual recursive dictionary parsing.
         """
@@ -192,27 +243,56 @@ class RedisScheduler(Scheduler):
         span_id = data.get("span_id")
 
         if operation_type == "run":
-            return _RunTask(operation="run", params=params, trace_id=trace_id, span_id=span_id)
+            return _RunTask(
+                operation="run", params=params, trace_id=trace_id, span_id=span_id
+            )
         elif operation_type == "cancel":
-            return _CancelTask(operation="cancel", params=params, trace_id=trace_id, span_id=span_id)
+            return _CancelTask(
+                operation="cancel", params=params, trace_id=trace_id, span_id=span_id
+            )
         elif operation_type == "pause":
-            return _PauseTask(operation="pause", params=params, trace_id=trace_id, span_id=span_id)
+            return _PauseTask(
+                operation="pause", params=params, trace_id=trace_id, span_id=span_id
+            )
         elif operation_type == "resume":
-            return _ResumeTask(operation="resume", params=params, trace_id=trace_id, span_id=span_id)
+            return _ResumeTask(
+                operation="resume", params=params, trace_id=trace_id, span_id=span_id
+            )
         else:
             raise ValueError(f"Unknown operation type: {operation_type}")
 
     async def get_queue_length(self) -> int:
+        """Get the current length of the task queue.
+
+        Returns:
+            int: Number of tasks in the queue
+
+        Raises:
+            RuntimeError: If Redis client is not initialized
+        """
         if not self._redis_client:
             raise RuntimeError("Redis client not initialized.")
         return await self._redis_client.llen(self.queue_name)
 
     async def clear_queue(self) -> int:
+        """Clear all tasks from the queue.
+
+        Returns:
+            int: Number of tasks removed from the queue
+
+        Raises:
+            RuntimeError: If Redis client is not initialized
+        """
         if not self._redis_client:
             raise RuntimeError("Redis client not initialized.")
         return await self._redis_client.delete(self.queue_name)
 
     async def health_check(self) -> bool:
+        """Check if the Redis connection is healthy.
+
+        Returns:
+            bool: True if Redis is reachable and responsive, False otherwise
+        """
         try:
             if not self._redis_client:
                 return False

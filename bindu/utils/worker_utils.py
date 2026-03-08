@@ -30,7 +30,8 @@ class MessageConverter:
     @staticmethod
     def to_chat_format(history: list[Message]) -> list[ChatMessage]:
         """Convert protocol messages to standard chat format.
-           Preserves file parts so handlers can process uploaded documents.
+
+        Preserves file parts so handlers can process uploaded documents.
 
         Args:
             history: List of protocol messages

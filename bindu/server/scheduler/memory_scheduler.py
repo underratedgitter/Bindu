@@ -46,8 +46,8 @@ class InMemoryScheduler(Scheduler):
         self.aexit_stack = AsyncExitStack()
         await self.aexit_stack.__aenter__()
 
-        # FIX: Added math.inf to create a buffered stream. 
-        # Without this, the stream defaults to 0 (unbuffered), which causes 
+        # FIX: Added math.inf to create a buffered stream.
+        # Without this, the stream defaults to 0 (unbuffered), which causes
         # the API server to deadlock/hang waiting for a worker to receive the task.
         self._write_stream, self._read_stream = anyio.create_memory_object_stream[
             TaskOperation
@@ -76,7 +76,9 @@ class InMemoryScheduler(Scheduler):
         logger.debug(f"Canceling task: {params}")
         trace_id, span_id = _get_trace_context()
         await self._write_stream.send(
-            _CancelTask(operation="cancel", params=params, trace_id=trace_id, span_id=span_id)
+            _CancelTask(
+                operation="cancel", params=params, trace_id=trace_id, span_id=span_id
+            )
         )
 
     @retry_scheduler_operation(max_attempts=3, min_wait=0.1, max_wait=1)
@@ -85,7 +87,9 @@ class InMemoryScheduler(Scheduler):
         logger.debug(f"Pausing task: {params}")
         trace_id, span_id = _get_trace_context()
         await self._write_stream.send(
-            _PauseTask(operation="pause", params=params, trace_id=trace_id, span_id=span_id)
+            _PauseTask(
+                operation="pause", params=params, trace_id=trace_id, span_id=span_id
+            )
         )
 
     @retry_scheduler_operation(max_attempts=3, min_wait=0.1, max_wait=1)
@@ -94,7 +98,9 @@ class InMemoryScheduler(Scheduler):
         logger.debug(f"Resuming task: {params}")
         trace_id, span_id = _get_trace_context()
         await self._write_stream.send(
-            _ResumeTask(operation="resume", params=params, trace_id=trace_id, span_id=span_id)
+            _ResumeTask(
+                operation="resume", params=params, trace_id=trace_id, span_id=span_id
+            )
         )
 
     async def receive_task_operations(self) -> AsyncIterator[TaskOperation]:

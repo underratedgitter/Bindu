@@ -63,10 +63,11 @@ ParamsT = TypeVar("ParamsT")
 
 class _TaskOperation(TypedDict, Generic[OperationT, ParamsT]):
     """A task operation.
-    
-    Refactored to use primitive trace_id/span_id instead of a live OpenTelemetry 
+
+    Refactored to use primitive trace_id/span_id instead of a live OpenTelemetry
     Span object to support distributed JSON serialization safely.
     """
+
     operation: OperationT
     params: ParamsT
     trace_id: str | None

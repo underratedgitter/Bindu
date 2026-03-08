@@ -106,7 +106,7 @@ export function convertImage(sharpInst: Sharp, outputMime: string): Sharp {
 }
 
 // heic/heif requires proprietary license
-// Only block non av1 supports  
+// Only block non av1 supports
 const isBlockListedMime = (mime: string,compression?:string): boolean =>{
 	if(mime !== "image/heic" && mime !== "image/heif"){
 		return false;

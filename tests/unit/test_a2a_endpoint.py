@@ -115,11 +115,16 @@ async def test_agent_run_rejects_file_part_missing_text():
     message = create_test_message(text="test")
     # attach an invalid file part without accompanying text
     message["parts"].append(
-        {"kind": "file", "file": {"bytes": "dGVzdA==", "mimeType": "text/plain", "name": "test.txt"}}
+        {
+            "kind": "file",
+            "file": {"bytes": "dGVzdA==", "mimeType": "text/plain", "name": "test.txt"},
+        }
     )
     config = {"acceptedOutputModes": ["text/plain"]}
 
-    req = _make_a2a_request("message/send", {"message": message, "configuration": config})
+    req = _make_a2a_request(
+        "message/send", {"message": message, "configuration": config}
+    )
     resp = await agent_run_endpoint(cast(BinduApplication, app), req)  # type: ignore
     assert resp.status_code == 400
     body = json.loads(resp.body)

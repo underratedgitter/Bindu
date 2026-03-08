@@ -356,6 +356,7 @@ class TestPartTypes:
         error when parsed.
         """
         # The easiest way to trigger the same validation logic used by the
+
     # A2A endpoint is to construct a raw request dict and run it through the
     # `a2a_request_ta` adapter.  Omitting `text` should result in a
     # ValidationError.

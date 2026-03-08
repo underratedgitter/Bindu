@@ -110,7 +110,7 @@ async def create_scheduler(config: SchedulerConfig | None = None) -> Scheduler:
 
 async def close_scheduler(scheduler: Scheduler) -> None:
     """Close scheduler connection gracefully.
-    
+
     Unconditionally calls __aexit__ as all Scheduler interfaces implement it.
     This prevents resource leaks (like unclosed anyio streams in InMemoryScheduler).
     """
