@@ -530,6 +530,7 @@ NightSky enables swarms of agents. Each Bindu is a dot annotating agents with th
 
 Bindu is **framework-agnostic** and tested with:
 
+- **AG2** (formerly AutoGen)
 - **Agno**
 - **CrewAI**
 - **LangChain**

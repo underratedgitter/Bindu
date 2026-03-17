@@ -811,6 +811,7 @@ NightSky 实现代理群。每个 Bindu 都是一个点，用 A2A、AP2 和 X402
 
 Bindu 是**框架无关的**，并已测试：
 
+- **AG2**（原 AutoGen）
 - **Agno**
 - **CrewAI**
 - **LangChain**

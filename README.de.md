@@ -1174,6 +1174,7 @@ NightSky ermöglicht Schwärme von Agenten. Jeder Bindu ist ein Punkt, der Agent
 
 Bindu ist **framework-agnostisch** und getestet mit:
 
+- **AG2** (ehemals AutoGen)
 - **Agno**
 - **CrewAI**
 - **LangChain**

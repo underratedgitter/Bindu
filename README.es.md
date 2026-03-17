@@ -811,6 +811,7 @@ NightSky habilita enjambres de agentes. Cada Bindu es un punto que anota agentes
 
 Bindu es **agnóstico al framework** y está probado con:
 
+- **AG2** (anteriormente AutoGen)
 - **Agno**
 - **CrewAI**
 - **LangChain**

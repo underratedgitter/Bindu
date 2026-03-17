@@ -811,6 +811,7 @@ NightSky permet des essaims d'agents. Chaque Bindu est un point qui annote les a
 
 Bindu est **agnostique au framework** et testé avec :
 
+- **AG2** (anciennement AutoGen)
 - **Agno**
 - **CrewAI**
 - **LangChain**

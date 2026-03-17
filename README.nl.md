@@ -811,6 +811,7 @@ NightSky maakt zwermen van agents mogelijk. Elke Bindu is een punt dat agents an
 
 Bindu is **framework-agnostisch** en getest met:
 
+- **AG2** (voorheen AutoGen)
 - **Agno**
 - **CrewAI**
 - **LangChain**
