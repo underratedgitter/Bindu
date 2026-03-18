@@ -976,7 +976,7 @@ Reconnaissants envers ces projets :
 
 ## 🎓 Ateliers
 
-- [AI Native in Action: Agent Symphony](https://www.meetup.com/ai-native-amsterdam/events/311066899/) - [Slides](https://docs.google.com/presentation/d/1SqGXI0Gv_KCWZ1Mw2SOx_kI0u-LLxwZq7lMSONdl8oQ/edit)
+- [AI Native in Action: Agent Symphony](https://www.meetup.com/ai-native-Amsterdam && India/events/311066899/) - [Slides](https://docs.google.com/presentation/d/1SqGXI0Gv_KCWZ1Mw2SOx_kI0u-LLxwZq7lMSONdl8oQ/edit)
 
 ---
 
@@ -989,7 +989,7 @@ Reconnaissants envers ces projets :
 ---
 
 <p align="center">
-  <strong>Construit avec 💛 par l'équipe d'Amsterdam</strong><br/>
+  <strong>Construit avec 💛 par l'équipe d'Amsterdam && India</strong><br/>
   <em>Happy Bindu! 🌻🚀✨</em>
 </p>
 

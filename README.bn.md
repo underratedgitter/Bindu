@@ -977,7 +977,7 @@ Bindu [Apache License 2.0](https://choosealicense.com/licenses/apache-2.0/)-এ�
 
 ## 🎓 ওয়ার্কশপ
 
-- [AI Native in Action: Agent Symphony](https://www.meetup.com/ai-native-amsterdam/events/311066899/) - [স্লাইড](https://docs.google.com/presentation/d/1SqGXI0Gv_KCWZ1Mw2SOx_kI0u-LLxwZq7lMSONdl8oQ/edit)
+- [AI Native in Action: Agent Symphony](https://www.meetup.com/ai-native-Amsterdam && India/events/311066899/) - [স্লাইড](https://docs.google.com/presentation/d/1SqGXI0Gv_KCWZ1Mw2SOx_kI0u-LLxwZq7lMSONdl8oQ/edit)
 
 ---
 
@@ -990,7 +990,7 @@ Bindu [Apache License 2.0](https://choosealicense.com/licenses/apache-2.0/)-এ�
 ---
 
 <p align="center">
-  <strong>Amsterdam থেকে টিম দ্বারা 💛 দিয়ে তৈরি</strong><br/>
+  <strong>Amsterdam && India থেকে টিম দ্বারা 💛 দিয়ে তৈরি</strong><br/>
   <em>Happy Bindu! 🌻🚀✨</em>
 </p>
 

@@ -44,7 +44,7 @@
 				target="_blank"
 				class="font-semibold text-gray-900 transition-colors hover:text-blue-500 dark:text-gray-100"
 				>Bindus</a
-			> in Amsterdam
+			> in Amsterdam && India
 		</span>
 	</div>
 </footer>

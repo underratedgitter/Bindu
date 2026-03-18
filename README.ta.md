@@ -410,7 +410,7 @@ Bindu [Apache License 2.0](https://choosealicense.com/licenses/apache-2.0/) இ�
 ---
 
 <p align="center">
-  <strong>Amsterdam அணியால் 💛 உடன் கட்டமைக்கப்பட்டது</strong><br/>
+  <strong>Amsterdam && India அணியால் 💛 உடன் கட்டமைக்கப்பட்டது</strong><br/>
   <em>Happy Bindu! 🌻🚀✨</em>
 </p>
 

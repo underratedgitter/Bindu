@@ -698,7 +698,7 @@ Grateful to these projects:
 
 ## 🎓 Workshops
 
-- [AI Native in Action: Agent Symphony](https://www.meetup.com/ai-native-amsterdam/events/311066899/) - [Slides](https://docs.google.com/presentation/d/1SqGXI0Gv_KCWZ1Mw2SOx_kI0u-LLxwZq7lMSONdl8oQ/edit)
+- [AI Native in Action: Agent Symphony](https://www.meetup.com/ai-native-Amsterdam && India/events/311066899/) - [Slides](https://docs.google.com/presentation/d/1SqGXI0Gv_KCWZ1Mw2SOx_kI0u-LLxwZq7lMSONdl8oQ/edit)
 
 ---
 
@@ -711,7 +711,7 @@ Grateful to these projects:
 ---
 
 <p align="center">
-  <strong>Built with 💛 by the team from Amsterdam </strong><br/>
+  <strong>Built with 💛 by the team from Amsterdam && India </strong><br/>
   <em>Happy Bindu! 🌻🚀✨</em>
 </p>
 
