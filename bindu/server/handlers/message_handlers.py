@@ -60,22 +60,22 @@ class MessageHandlers:
         task: Task,
         context_id: Any,
         error: Exception,
-        terminal_states: set[str] | frozenset[str]
+        terminal_states: set[str] | frozenset[str],
     ) -> dict:
         """Handle streaming errors and return error event.
-        
+
         Args:
             task: The task being streamed
             context_id: Context ID for the task
             error: The exception that occurred
             terminal_states: Set of terminal task states
-            
+
         Returns:
             Error event dict for SSE stream
         """
         timestamp = datetime.now(timezone.utc).isoformat()
         current_state = "failed"
-        
+
         try:
             loaded_task = await self.storage.load_task(task["id"])
         except Exception as load_err:
@@ -90,9 +90,7 @@ class MessageHandlers:
             timestamp = loaded_task["status"]["timestamp"]
             if current_state not in terminal_states:
                 try:
-                    updated = await self.storage.update_task(
-                        task["id"], state="failed"
-                    )
+                    updated = await self.storage.update_task(task["id"], state="failed")
                     if updated and "status" in updated:
                         current_state = updated["status"]["state"]
                         timestamp = updated["status"]["timestamp"]

@@ -151,13 +151,13 @@ class ConfigValidator:
         allow_none: bool = False,
     ) -> None:
         """Validate a single field's type.
-        
+
         Args:
             config: Configuration dictionary
             field: Field name to validate
             expected_type: Expected Python type
             allow_none: Whether None values are allowed
-            
+
         Raises:
             ValueError: If field type is invalid
         """
@@ -228,7 +228,9 @@ class ConfigValidator:
                         )
             else:
                 # Any other type is invalid
-                raise ValueError("Field 'execution_cost' must be a dict or a list of dicts")
+                raise ValueError(
+                    "Field 'execution_cost' must be a dict or a list of dicts"
+                )
 
     # ------------------------------------------------------------------
     # Auth validation

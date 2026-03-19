@@ -28,12 +28,12 @@ def _build_health_payload(
     agent_did: str | None,
 ) -> dict:
     """Build common health check payload.
-    
+
     Args:
         app: BinduApplication instance
         runtime: Runtime status dict from get_runtime_status()
         agent_did: Agent DID if available
-        
+
     Returns:
         Health payload dict with common fields
     """
@@ -65,24 +65,24 @@ async def health_endpoint(app: BinduApplication, request: Request) -> JSONRespon
 
     Returns HTTP 200 when all components (storage, scheduler, task-manager) are running.
     Returns HTTP 503 when any component is not ready.
-    
+
     This endpoint is suitable for Kubernetes readiness/liveness probes and general
     health monitoring.
     """
     # Get runtime status
     runtime = get_runtime_status(app)
-    
+
     # Get agent DID if available
     agent_did = get_agent_did(app)
 
     # Build payload with common fields
     payload = _build_health_payload(app, runtime, agent_did)
-    
+
     # Add healthz-specific fields
     payload["status"] = "ok" if runtime["strict_ready"] else "degraded"
     payload["ready"] = runtime["strict_ready"]
     payload["uptime_seconds"] = round(monotonic() - _start_time, 2)
-    
+
     # Remove platform_release for healthz (lighter payload)
     payload["system"].pop("platform_release", None)
 

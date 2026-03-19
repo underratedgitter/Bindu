@@ -27,7 +27,7 @@ def prepare_auth_settings(auth_config: Dict[str, Any]) -> Optional[Dict[str, Any
         return None
 
     provider = auth_config.get("provider", "hydra")
-    
+
     settings_to_apply = {
         "auth": {
             "enabled": True,
@@ -81,14 +81,16 @@ def prepare_vault_settings(vault_config: Dict[str, Any]) -> Optional[Dict[str, A
             "token": vault_config.get("token"),
         }
     }
-    
+
     # Remove None values
     settings_to_apply["vault"] = {
         k: v for k, v in settings_to_apply["vault"].items() if v is not None
     }
 
     if settings_to_apply["vault"].get("enabled"):
-        logger.info(f"Vault integration enabled: {settings_to_apply['vault'].get('url')}")
+        logger.info(
+            f"Vault integration enabled: {settings_to_apply['vault'].get('url')}"
+        )
     else:
         logger.debug("Vault integration disabled")
 

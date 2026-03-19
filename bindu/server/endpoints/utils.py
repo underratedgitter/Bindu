@@ -123,19 +123,19 @@ def validate_manifest(
     error_type: Type[Any] = InternalError,
 ) -> JSONResponse | None:
     """Validate manifest exists, return error response if not.
-    
+
     Args:
         app: BinduApplication instance
         client_ip: Client IP for logging
         use_jsonrpc: Whether to use JSON-RPC error format
         error_type: Error type to use for JSON-RPC errors
-        
+
     Returns:
         None if manifest exists, error response otherwise
     """
     if app.manifest is not None:
         return None
-    
+
     if use_jsonrpc:
         logger.warning(f"Manifest not configured (requested by {client_ip})")
         code, message = extract_error_fields(error_type)
@@ -148,10 +148,10 @@ def validate_manifest(
 
 def get_agent_did(app: Any) -> str | None:
     """Extract agent DID from manifest.
-    
+
     Args:
         app: BinduApplication instance
-        
+
     Returns:
         Agent DID if available, None otherwise
     """
@@ -166,23 +166,25 @@ def get_agent_did(app: Any) -> str | None:
 
 def get_runtime_status(app: Any) -> dict:
     """Get runtime status information.
-    
+
     Args:
         app: BinduApplication instance
-        
+
     Returns:
         Dict with storage_type, scheduler_type, task_manager_running, strict_ready
     """
     storage_type = type(app._storage).__name__ if app._storage else None
     scheduler_type = type(app._scheduler).__name__ if app._scheduler else None
     task_manager_running = app.task_manager.is_running if app.task_manager else False
-    
-    strict_ready = all([
-        app._storage is not None,
-        app._scheduler is not None,
-        task_manager_running,
-    ])
-    
+
+    strict_ready = all(
+        [
+            app._storage is not None,
+            app._scheduler is not None,
+            task_manager_running,
+        ]
+    )
+
     return {
         "storage_type": storage_type,
         "scheduler_type": scheduler_type,
@@ -195,16 +197,16 @@ def create_response_with_x402(
     request: Request,
     content: Any,
     response_type: type[Response] = JSONResponse,
-    **kwargs
+    **kwargs,
 ) -> Response:
     """Create response and add X402 header if requested.
-    
+
     Args:
         request: Starlette request
         content: Response content
         response_type: Response class to use
         **kwargs: Additional response kwargs
-        
+
     Returns:
         Response with X402 header if requested
     """
@@ -212,7 +214,7 @@ def create_response_with_x402(
         is_activation_requested as x402_is_requested,
         add_activation_header as x402_add_header,
     )
-    
+
     resp = response_type(content=content, **kwargs)
     if x402_is_requested(request):
         resp = x402_add_header(resp)
@@ -223,29 +225,29 @@ def validate_authentication(
     request: Request,
     client_ip: str,
     context: str = "this operation",
-    request_id: Any = None
+    request_id: Any = None,
 ) -> JSONResponse | None:
     """Validate authentication if enabled.
-    
+
     Args:
         request: Starlette request
         client_ip: Client IP for logging
         context: Context description for error message
         request_id: Optional JSON-RPC request ID
-        
+
     Returns:
         None if authenticated, error response otherwise
     """
     if not app_settings.auth.enabled:
         return None
-    
+
     user_info = getattr(request.state, "user_info", None)
     if user_info:
         return None
-    
+
     logger.warning(f"Unauthenticated {context} request from {client_ip}")
     from bindu.common.protocol.types import AuthenticationRequiredError
-    
+
     code, message = extract_error_fields(AuthenticationRequiredError)
     return jsonrpc_error(
         code,
@@ -256,57 +258,56 @@ def validate_authentication(
     )
 
 
-def get_skill_or_error(
-    app: Any,
-    skill_id: str
-) -> tuple[Any, JSONResponse | None]:
+def get_skill_or_error(app: Any, skill_id: str) -> tuple[Any, JSONResponse | None]:
     """Get skill by ID or return error response.
-    
+
     Args:
         app: BinduApplication instance
         skill_id: Skill ID to find
-        
+
     Returns:
         Tuple of (skill, error_response). One will be None.
     """
     from bindu.utils.skills import find_skill_by_id
     from bindu.common.protocol.types import SkillNotFoundError
-    
+
     skills = app.manifest.skills or [] if app.manifest else []
     skill = find_skill_by_id(skills, skill_id)
-    
+
     if not skill:
         logger.warning(f"Skill not found: {skill_id}")
         code, message = extract_error_fields(SkillNotFoundError)
         return None, jsonrpc_error(code, f"Skill not found: {skill_id}", status=404)
-    
+
     return skill, None
 
 
 def validate_payment_manager(
-    app: Any,
-    use_html: bool = False,
-    error_html_generator: Any = None
+    app: Any, use_html: bool = False, error_html_generator: Any = None
 ) -> Response | None:
     """Validate payment session manager exists.
-    
+
     Args:
         app: BinduApplication instance
         use_html: Whether to return HTML response
         error_html_generator: Function to generate error HTML (for HTML responses)
-        
+
     Returns:
         None if manager exists, error response otherwise
     """
     if app._payment_session_manager is not None:
         return None
-    
+
     if use_html:
         from starlette.responses import HTMLResponse
-        error_content = error_html_generator("Payment sessions not enabled") if error_html_generator else "Payment sessions not enabled"
+
+        error_content = (
+            error_html_generator("Payment sessions not enabled")
+            if error_html_generator
+            else "Payment sessions not enabled"
+        )
         return HTMLResponse(content=error_content, status_code=503)
     else:
         return JSONResponse(
-            content={"error": "Payment sessions not enabled"},
-            status_code=503
+            content={"error": "Payment sessions not enabled"}, status_code=503
         )

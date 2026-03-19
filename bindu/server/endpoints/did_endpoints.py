@@ -27,12 +27,12 @@ logger = get_logger("bindu.server.endpoints.did_endpoints")
 
 def _did_not_found_error(did: str, reason: str, client_ip: str) -> Response:
     """Return DID not found error response.
-    
+
     Args:
         did: Requested DID
         reason: Reason for error (for logging)
         client_ip: Client IP for logging
-        
+
     Returns:
         JSON-RPC error response
     """
@@ -83,7 +83,7 @@ async def did_resolve_endpoint(app: BinduApplication, request: Request) -> Respo
         return _did_not_found_error(
             did,
             f"DID mismatch - requested: {did}, our DID: {did_extension.did}",
-            client_ip
+            client_ip,
         )
 
     # Validate DID extension has required method

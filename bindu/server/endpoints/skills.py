@@ -86,7 +86,9 @@ async def skill_detail_endpoint(app: BinduApplication, request: Request) -> Resp
     logger.debug(f"Serving skill detail for '{skill_id}' to {client_ip}")
 
     # Ensure manifest exists
-    error_resp = validate_manifest(app, client_ip, use_jsonrpc=True, error_type=SkillNotFoundError)
+    error_resp = validate_manifest(
+        app, client_ip, use_jsonrpc=True, error_type=SkillNotFoundError
+    )
     if error_resp:
         return error_resp
 
@@ -128,7 +130,9 @@ async def skill_documentation_endpoint(
     logger.debug(f"Serving skill documentation for '{skill_id}' to {client_ip}")
 
     # Ensure manifest exists
-    error_resp = validate_manifest(app, client_ip, use_jsonrpc=True, error_type=SkillNotFoundError)
+    error_resp = validate_manifest(
+        app, client_ip, use_jsonrpc=True, error_type=SkillNotFoundError
+    )
     if error_resp:
         return error_resp
 

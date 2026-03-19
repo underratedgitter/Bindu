@@ -208,7 +208,9 @@ def create_sentry_config_from_env(user_config: Dict[str, Any]):
     )
 
 
-def create_auth_config_from_env(user_config: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+def create_auth_config_from_env(
+    user_config: Dict[str, Any],
+) -> Optional[Dict[str, Any]]:
     """Create auth configuration from validated config.
 
     Auth config is already enriched by load_config_from_env() and validated.
@@ -223,7 +225,9 @@ def create_auth_config_from_env(user_config: Dict[str, Any]) -> Optional[Dict[st
     return user_config.get("auth")
 
 
-def create_vault_config_from_env(user_config: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+def create_vault_config_from_env(
+    user_config: Dict[str, Any],
+) -> Optional[Dict[str, Any]]:
     """Create vault configuration from validated config.
 
     Vault config is already enriched by load_config_from_env() and validated.

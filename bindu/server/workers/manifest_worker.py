@@ -32,7 +32,8 @@ from dataclasses import dataclass, field
 from typing import Any, Callable, Optional
 from uuid import UUID
 
-from opentelemetry.trace import Status, StatusCode, get_tracer
+from opentelemetry.trace import Status, StatusCode, get_current_span, get_tracer
+from x402.facilitator import FacilitatorClient, FacilitatorConfig
 
 from bindu.settings import app_settings
 
@@ -53,6 +54,10 @@ from bindu.utils.worker import ArtifactBuilder, MessageConverter, TaskStateManag
 
 tracer = get_tracer("bindu.server.workers.manifest_worker")
 logger = get_logger("bindu.server.workers.manifest_worker")
+
+# Constants
+TASK_NOT_FOUND_ERROR = "Task {task_id} not found"
+INVALID_TERMINAL_STATE_ERROR = "Invalid terminal state '{state}'. Must be one of: {terminal_states}"
 
 
 @dataclass
@@ -112,7 +117,7 @@ class ManifestWorker(Worker):
         # Step 1: Load and validate task
         task = await self.storage.load_task(params["task_id"])
         if task is None:
-            raise ValueError(f"Task {params['task_id']} not found")
+            raise ValueError(TASK_NOT_FOUND_ERROR.format(task_id=params['task_id']))
 
         # Extract payment context if available (from x402 middleware)
         payment_context = params.get("payment_context")
@@ -120,13 +125,7 @@ class ManifestWorker(Worker):
         await TaskStateManager.validate_task_state(task)
 
         # Add span event for state transition
-        from opentelemetry.trace import get_current_span
-
-        current_span = get_current_span()
-        if current_span.is_recording():
-            current_span.add_event(
-                "task.state_changed", attributes={"to_state": "working"}
-            )
+        self._add_state_change_event(to_state="working")
 
         # Transition to working
         await self.storage.update_task(task["id"], state="working")
@@ -208,22 +207,12 @@ class ManifestWorker(Worker):
             if state in ("input-required", "auth-required"):
                 # Hybrid Pattern: Return Message only, keep task open
                 # Add span event for state transition
-                current_span = get_current_span()
-                if current_span.is_recording():
-                    current_span.add_event(
-                        "task.state_changed",
-                        attributes={"from_state": "working", "to_state": state},
-                    )
+                self._add_state_change_event(from_state="working", to_state=state)
                 await self._handle_intermediate_state(task, state, message_content)
             else:
                 # Hybrid Pattern: Task complete - generate Message + Artifacts
                 # Add span event for state transition
-                current_span = get_current_span()
-                if current_span.is_recording():
-                    current_span.add_event(
-                        "task.state_changed",
-                        attributes={"from_state": "working", "to_state": state},
-                    )
+                self._add_state_change_event(from_state="working", to_state=state)
                 await self._handle_terminal_state(
                     task, results, state, payment_context=payment_context
                 )
@@ -231,16 +220,7 @@ class ManifestWorker(Worker):
         except Exception as e:
             # Handle task failure with error message
             # Add span event for failure
-            current_span = get_current_span()
-            if current_span.is_recording():
-                current_span.add_event(
-                    "task.state_changed",
-                    attributes={
-                        "from_state": "working",
-                        "to_state": "failed",
-                        "error": str(e),
-                    },
-                )
+            self._add_state_change_event(from_state="working", to_state="failed", error=str(e))
             await self._handle_task_failure(task, str(e))
             raise
         return
@@ -255,17 +235,9 @@ class ManifestWorker(Worker):
         task = await self.storage.load_task(params["task_id"])
         if task:
             # Add span event for cancellation
-            from opentelemetry.trace import get_current_span
-
-            current_span = get_current_span()
-            if current_span.is_recording():
-                current_span.add_event(
-                    "task.state_changed",
-                    attributes={
-                        "from_state": task["status"]["state"],
-                        "to_state": "canceled",
-                    },
-                )
+            self._add_state_change_event(
+                from_state=task["status"]["state"], to_state="canceled"
+            )
             await self.storage.update_task(params["task_id"], state="canceled")
             await self._notify_lifecycle(
                 params["task_id"], task["context_id"], "canceled", True
@@ -324,8 +296,6 @@ class ManifestWorker(Worker):
 
         if reference_task_ids:
             # Strategy 1: Explicit references (A2A refinement pattern)
-            from uuid import UUID
-
             referenced_messages: list[Message] = []
             for task_id in reference_task_ids:
                 # Ensure task_id is UUID object
@@ -358,6 +328,57 @@ class ManifestWorker(Worker):
             all_messages = task.get("history", [])
 
         return self.build_message_history(all_messages) if all_messages else []
+
+    # -------------------------------------------------------------------------
+    # Helper Methods
+    # -------------------------------------------------------------------------
+
+    def _add_state_change_event(
+        self,
+        to_state: str,
+        from_state: str | None = None,
+        error: str | None = None,
+    ) -> None:
+        """Add state change event to current OpenTelemetry span.
+        
+        Args:
+            to_state: Target state
+            from_state: Optional source state
+            error: Optional error message
+        """
+        current_span = get_current_span()
+        if current_span.is_recording():
+            attributes: dict[str, str] = {"to_state": to_state}
+            if from_state:
+                attributes["from_state"] = from_state
+            if error:
+                attributes["error"] = error
+            current_span.add_event("task.state_changed", attributes=attributes)
+
+    def _log_notification_error(
+        self,
+        notification_type: str,
+        task_id: UUID,
+        context_id: UUID,
+        error: Exception,
+        **extra_context: Any,
+    ) -> None:
+        """Log notification delivery errors.
+        
+        Args:
+            notification_type: Type of notification (e.g., 'Lifecycle', 'Artifact')
+            task_id: Task identifier
+            context_id: Context identifier
+            error: Exception that occurred
+            **extra_context: Additional context to log
+        """
+        logger.warning(
+            f"{notification_type} notification failed",
+            task_id=str(task_id),
+            context_id=str(context_id),
+            error=str(error),
+            **extra_context,
+        )
 
     # -------------------------------------------------------------------------
     # Message Normalization
@@ -433,7 +454,9 @@ class ManifestWorker(Worker):
         # Validate that state is terminal
         if state not in app_settings.agent.terminal_states:
             raise ValueError(
-                f"Invalid terminal state '{state}'. Must be one of: {app_settings.agent.terminal_states}"
+                INVALID_TERMINAL_STATE_ERROR.format(
+                    state=state, terminal_states=app_settings.agent.terminal_states
+                )
             )
 
         # Handle different terminal states
@@ -524,7 +547,6 @@ class ManifestWorker(Worker):
         Returns:
             Metadata dict containing settlement information to attach to task
         """
-        from x402.facilitator import FacilitatorClient, FacilitatorConfig
 
         try:
             payment_payload = payment_context["payment_payload"]
@@ -582,11 +604,8 @@ class ManifestWorker(Worker):
                         await result
             except Exception as e:
                 # Log but don't disrupt task execution on notification errors
-                logger.warning(
-                    "Artifact notification failed",
-                    task_id=str(task_id),
-                    context_id=str(context_id),
-                    error=str(e),
+                self._log_notification_error(
+                    "Artifact", task_id, context_id, e
                 )
 
     async def _notify_lifecycle(
@@ -608,10 +627,6 @@ class ManifestWorker(Worker):
                     await result
             except Exception as e:
                 # Log but don't disrupt task execution on notification errors
-                logger.warning(
-                    "Lifecycle notification failed",
-                    task_id=str(task_id),
-                    context_id=str(context_id),
-                    state=state,
-                    error=str(e),
+                self._log_notification_error(
+                    "Lifecycle", task_id, context_id, e, state=state
                 )

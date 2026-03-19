@@ -25,10 +25,10 @@ DEFAULT_OUTPUT_MODES = ["text/plain", "application/json"]
 
 def _serialize_extension(ext: Any) -> dict | None:
     """Serialize an extension to AgentExtension dict format.
-    
+
     Args:
         ext: Extension instance or dict
-        
+
     Returns:
         Serialized extension dict or None if unknown type
     """
@@ -55,19 +55,19 @@ def _serialize_extension(ext: Any) -> dict | None:
 
 def _serialize_extensions(capabilities: dict) -> None:
     """Serialize extensions in capabilities dict in-place.
-    
+
     Args:
         capabilities: Capabilities dict to modify
     """
     if "extensions" not in capabilities:
         return
-    
+
     serializable_extensions = []
     for ext in capabilities["extensions"]:
         serialized = _serialize_extension(ext)
         if serialized is not None:
             serializable_extensions.append(serialized)
-    
+
     capabilities["extensions"] = serializable_extensions
 
 
@@ -151,5 +151,5 @@ async def agent_card_endpoint(app: BinduApplication, request: Request) -> Respon
         request,
         app._agent_card_json_schema,
         response_type=Response,
-        media_type="application/json"
+        media_type="application/json",
     )

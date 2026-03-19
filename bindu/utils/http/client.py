@@ -98,7 +98,9 @@ class AsyncHTTPClient:
         headers: dict[str, str] | None = None,
         **kwargs,
     ) -> aiohttp.ClientResponse:
-        """Make HTTP request (single attempt - retry handled by decorators on public methods).
+        """Make an HTTP request with single attempt.
+        
+        Retry logic is handled by decorators on public methods.
 
         Args:
             method: HTTP method (GET, POST, PUT, DELETE, etc.)
@@ -144,9 +146,7 @@ class AsyncHTTPClient:
                 # Check for client/server errors and raise appropriate exceptions
                 if 400 <= response.status < 500:
                     error_text = await response.text()
-                    logger.error(
-                        f"{method} {url} -> {response.status}: {error_text}"
-                    )
+                    logger.error(f"{method} {url} -> {response.status}: {error_text}")
                     raise HTTPClientError(
                         f"Client error: {error_text}",
                         status=response.status,
@@ -154,9 +154,7 @@ class AsyncHTTPClient:
                     )
                 elif response.status >= 500:
                     error_text = await response.text()
-                    logger.warning(
-                        f"{method} {url} -> {response.status}: {error_text}"
-                    )
+                    logger.warning(f"{method} {url} -> {response.status}: {error_text}")
                     raise HTTPServerError(
                         f"Server error: {error_text}",
                         status=response.status,
@@ -180,11 +178,9 @@ class AsyncHTTPClient:
             aiohttp.ServerDisconnectedError,
         ) as e:
             logger.warning(f"{method} {url} connection failed: {e}")
-            raise HTTPConnectionError(
-                f"Connection failed: {str(e)}", url=url
-            ) from e
+            raise HTTPConnectionError(f"Connection failed: {str(e)}", url=url) from e
 
-    @create_retry_decorator('api')
+    @create_retry_decorator("api")
     async def get(
         self,
         endpoint: str,
@@ -208,7 +204,7 @@ class AsyncHTTPClient:
             "GET", endpoint, params=params, headers=headers, **kwargs
         )
 
-    @create_retry_decorator('api')
+    @create_retry_decorator("api")
     async def post(
         self,
         endpoint: str,
@@ -234,7 +230,7 @@ class AsyncHTTPClient:
             "POST", endpoint, data=data, json=json, headers=headers, **kwargs
         )
 
-    @create_retry_decorator('api')
+    @create_retry_decorator("api")
     async def put(
         self,
         endpoint: str,
@@ -260,7 +256,7 @@ class AsyncHTTPClient:
             "PUT", endpoint, data=data, json=json, headers=headers, **kwargs
         )
 
-    @create_retry_decorator('api')
+    @create_retry_decorator("api")
     async def delete(
         self,
         endpoint: str,
@@ -280,7 +276,7 @@ class AsyncHTTPClient:
         """
         return await self.request("DELETE", endpoint, headers=headers, **kwargs)
 
-    @create_retry_decorator('api')
+    @create_retry_decorator("api")
     async def patch(
         self,
         endpoint: str,

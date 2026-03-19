@@ -139,7 +139,11 @@ class X402Middleware(BaseHTTPMiddleware):
         for rpc_url in rpc_urls:
             try:
                 logger.debug(f"Creating new Web3 connection to {rpc_url}")
-                w3 = Web3(Web3.HTTPProvider(rpc_url, request_kwargs={"timeout": WEB3_RPC_TIMEOUT_SECONDS}))
+                w3 = Web3(
+                    Web3.HTTPProvider(
+                        rpc_url, request_kwargs={"timeout": WEB3_RPC_TIMEOUT_SECONDS}
+                    )
+                )
 
                 # Test connection
                 chain_id = w3.eth.chain_id
@@ -296,7 +300,10 @@ class X402Middleware(BaseHTTPMiddleware):
         """
         try:
             # 1. Check scheme is 'exact'
-            if payment_payload.x402_version != SUPPORTED_X402_VERSION or payment_payload.scheme != SUPPORTED_PAYMENT_SCHEME:
+            if (
+                payment_payload.x402_version != SUPPORTED_X402_VERSION
+                or payment_payload.scheme != SUPPORTED_PAYMENT_SCHEME
+            ):
                 return False, f"Unsupported payment scheme: {payment_payload.scheme}"
 
             # 2. Extract authorization details

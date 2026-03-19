@@ -54,10 +54,13 @@ class InMemoryScheduler(Scheduler):
         await self.aexit_stack.__aexit__(exc_type, exc_value, traceback)
 
     async def _send_operation(
-        self, operation_class: type, operation: str, params: TaskSendParams | TaskIdParams
+        self,
+        operation_class: type,
+        operation: str,
+        params: TaskSendParams | TaskIdParams,
     ) -> None:
         """Send task operation with trace context.
-        
+
         Args:
             operation_class: The operation class to instantiate
             operation: Operation type string
@@ -69,25 +72,41 @@ class InMemoryScheduler(Scheduler):
         )
         await self._write_stream.send(task_op)
 
-    @retry_scheduler_operation(max_attempts=DEFAULT_RETRY_ATTEMPTS, min_wait=DEFAULT_RETRY_MIN_WAIT, max_wait=DEFAULT_RETRY_MAX_WAIT)
+    @retry_scheduler_operation(
+        max_attempts=DEFAULT_RETRY_ATTEMPTS,
+        min_wait=DEFAULT_RETRY_MIN_WAIT,
+        max_wait=DEFAULT_RETRY_MAX_WAIT,
+    )
     async def run_task(self, params: TaskSendParams) -> None:
         """Schedule a task for execution."""
         logger.debug(f"Running task: {params}")
         await self._send_operation(_RunTask, "run", params)
 
-    @retry_scheduler_operation(max_attempts=DEFAULT_RETRY_ATTEMPTS, min_wait=DEFAULT_RETRY_MIN_WAIT, max_wait=DEFAULT_RETRY_MAX_WAIT)
+    @retry_scheduler_operation(
+        max_attempts=DEFAULT_RETRY_ATTEMPTS,
+        min_wait=DEFAULT_RETRY_MIN_WAIT,
+        max_wait=DEFAULT_RETRY_MAX_WAIT,
+    )
     async def cancel_task(self, params: TaskIdParams) -> None:
         """Cancel a scheduled task."""
         logger.debug(f"Canceling task: {params}")
         await self._send_operation(_CancelTask, "cancel", params)
 
-    @retry_scheduler_operation(max_attempts=DEFAULT_RETRY_ATTEMPTS, min_wait=DEFAULT_RETRY_MIN_WAIT, max_wait=DEFAULT_RETRY_MAX_WAIT)
+    @retry_scheduler_operation(
+        max_attempts=DEFAULT_RETRY_ATTEMPTS,
+        min_wait=DEFAULT_RETRY_MIN_WAIT,
+        max_wait=DEFAULT_RETRY_MAX_WAIT,
+    )
     async def pause_task(self, params: TaskIdParams) -> None:
         """Pause a running task."""
         logger.debug(f"Pausing task: {params}")
         await self._send_operation(_PauseTask, "pause", params)
 
-    @retry_scheduler_operation(max_attempts=DEFAULT_RETRY_ATTEMPTS, min_wait=DEFAULT_RETRY_MIN_WAIT, max_wait=DEFAULT_RETRY_MAX_WAIT)
+    @retry_scheduler_operation(
+        max_attempts=DEFAULT_RETRY_ATTEMPTS,
+        min_wait=DEFAULT_RETRY_MIN_WAIT,
+        max_wait=DEFAULT_RETRY_MAX_WAIT,
+    )
     async def resume_task(self, params: TaskIdParams) -> None:
         """Resume a paused task."""
         logger.debug(f"Resuming task: {params}")

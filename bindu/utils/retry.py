@@ -74,7 +74,7 @@ def create_retry_decorator(
     max_wait: float | None = None,
     use_jitter: bool = True,
 ) -> Callable[[F], F]:
-    """Factory function to create retry decorators with consistent behavior.
+    """Create retry decorators with consistent behavior.
 
     This replaces the duplicate retry_worker_operation, retry_storage_operation,
     retry_scheduler_operation, and retry_api_call decorators.

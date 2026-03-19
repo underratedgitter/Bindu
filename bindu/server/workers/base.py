@@ -143,12 +143,29 @@ class Worker(ABC):
                         )
         except Exception as e:  # noqa: BLE001 - intentionally broad: any unhandled worker failure must mark the task as failed
             # Update task status to failed on any exception
-            from uuid import UUID
-
-            task_id_raw = task_operation["params"]["task_id"]
-            task_id = UUID(task_id_raw) if isinstance(task_id_raw, str) else task_id_raw
+            task_id = self._normalize_uuid(task_operation["params"]["task_id"])
             logger.error(f"Task {task_id} failed: {e}", exc_info=True)
             await self.storage.update_task(task_id, state="failed")
+
+    # -------------------------------------------------------------------------
+    # Helper Methods
+    # -------------------------------------------------------------------------
+
+    @staticmethod
+    def _normalize_uuid(value: Any) -> Any:
+        """Normalize UUID value from string or UUID object.
+        
+        Args:
+            value: UUID value (string, UUID object, or other)
+            
+        Returns:
+            UUID object if input is string or UUID, otherwise returns input as-is
+        """
+        from uuid import UUID
+        
+        if isinstance(value, str):
+            return UUID(value)
+        return value
 
     # -------------------------------------------------------------------------
     # Abstract Methods (Must Implement)

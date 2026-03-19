@@ -7,7 +7,7 @@ from opentelemetry.trace import get_current_span
 
 def get_trace_context() -> tuple[str | None, str | None]:
     """Extract primitive trace context from the live OpenTelemetry span.
-    
+
     Returns:
         Tuple of (trace_id, span_id) as hex strings, or (None, None) if no valid span
     """

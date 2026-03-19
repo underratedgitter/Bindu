@@ -76,7 +76,9 @@ async def payment_capture_endpoint(app: BinduApplication, request: Request) -> R
 
     Shows paywall UI and captures payment token when completed.
     """
-    error_resp = validate_payment_manager(app, use_html=True, error_html_generator=_get_error_html)
+    error_resp = validate_payment_manager(
+        app, use_html=True, error_html_generator=_get_error_html
+    )
     if error_resp:
         return error_resp
 

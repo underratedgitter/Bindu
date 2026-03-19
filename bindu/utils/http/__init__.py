@@ -9,7 +9,11 @@ This package provides HTTP clients for various purposes:
 
 from .client import AsyncHTTPClient, http_client
 from .auth_client import HybridAuthClient
-from .vault_client import VaultClient, restore_did_keys_from_vault, backup_did_keys_to_vault
+from .vault_client import (
+    VaultClient,
+    restore_did_keys_from_vault,
+    backup_did_keys_to_vault,
+)
 from .tokens import (
     get_client_credentials_token,
     introspect_token,

@@ -49,7 +49,9 @@ class ConfigLoader:
         valid_types: Optional[List[str]] = None,
         default_type: Optional[str] = None,
         env_prefix: str = "",
-        type_specific_loaders: Optional[Dict[str, Callable[[str], Dict[str, Any]]]] = None,
+        type_specific_loaders: Optional[
+            Dict[str, Callable[[str], Dict[str, Any]]]
+        ] = None,
     ) -> Optional[T]:
         """Load typed configuration (storage, scheduler, etc.) with validation.
 

@@ -249,10 +249,10 @@ class PushNotificationManager:
         task_id: UUID,
         context_id: UUID,
         exc: Exception,
-        **extra_context
+        **extra_context,
     ) -> None:
         """Log notification delivery errors with appropriate level.
-        
+
         Args:
             error_type: Type of notification (e.g., "lifecycle", "artifact")
             task_id: Task ID
@@ -267,7 +267,7 @@ class PushNotificationManager:
                 context_id=str(context_id),
                 status=exc.status,
                 message=str(exc),
-                **extra_context
+                **extra_context,
             )
         else:
             logger.error(
@@ -275,7 +275,7 @@ class PushNotificationManager:
                 task_id=str(task_id),
                 context_id=str(context_id),
                 error=str(exc),
-                **extra_context
+                **extra_context,
             )
 
     def build_lifecycle_event(
@@ -310,13 +310,7 @@ class PushNotificationManager:
         try:
             await self.notification_service.send_event(config, event)
         except Exception as exc:
-            self._log_notification_error(
-                "push",
-                task_id,
-                context_id,
-                exc,
-                state=state
-            )
+            self._log_notification_error("push", task_id, context_id, exc, state=state)
 
     def build_artifact_event(
         self,
@@ -360,11 +354,7 @@ class PushNotificationManager:
         except Exception as exc:
             artifact_name = artifact.get("name") if isinstance(artifact, dict) else None
             self._log_notification_error(
-                "artifact",
-                task_id,
-                context_id,
-                exc,
-                artifact_name=artifact_name
+                "artifact", task_id, context_id, exc, artifact_name=artifact_name
             )
 
     def schedule_notification(
@@ -381,11 +371,17 @@ class PushNotificationManager:
         asyncio.create_task(self.notify_lifecycle(task_id, context_id, state, final))
 
     def _jsonrpc_error(
-        self, response_class: type, request_id: Any, message: str, code: int = JSONRPC_INTERNAL_ERROR_CODE
+        self,
+        response_class: type,
+        request_id: Any,
+        message: str,
+        code: int = JSONRPC_INTERNAL_ERROR_CODE,
     ):
         """Create a JSON-RPC error response."""
         return response_class(
-            jsonrpc=JSONRPC_VERSION, id=request_id, error={"code": code, "message": message}
+            jsonrpc=JSONRPC_VERSION,
+            id=request_id,
+            error={"code": code, "message": message},
         )
 
     def _push_not_supported_response(self, response_class: type, request_id: Any):
@@ -393,7 +389,10 @@ class PushNotificationManager:
         return response_class(
             jsonrpc=JSONRPC_VERSION,
             id=request_id,
-            error={"code": JSONRPC_PUSH_NOT_SUPPORTED_CODE, "message": PUSH_NOT_SUPPORTED_MESSAGE},
+            error={
+                "code": JSONRPC_PUSH_NOT_SUPPORTED_CODE,
+                "message": PUSH_NOT_SUPPORTED_MESSAGE,
+            },
         )
 
     def _create_error_response(

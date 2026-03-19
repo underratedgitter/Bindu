@@ -18,7 +18,12 @@ from bindu.common.protocol.types import (
 from bindu.server.applications import BinduApplication
 from bindu.settings import app_settings
 from bindu.utils.logging import get_logger
-from .utils import extract_error_fields, get_client_ip, jsonrpc_error, validate_authentication
+from .utils import (
+    extract_error_fields,
+    get_client_ip,
+    jsonrpc_error,
+    validate_authentication,
+)
 from bindu.extensions.x402.extension import (
     is_activation_requested as x402_is_requested,
     add_activation_header as x402_add_header,
@@ -27,19 +32,15 @@ from bindu.extensions.x402.extension import (
 logger = get_logger("bindu.server.endpoints.a2a_protocol")
 
 
-def _attach_payment_context(
-    request: Request,
-    a2a_request: Any,
-    method: str
-) -> None:
+def _attach_payment_context(request: Request, a2a_request: Any, method: str) -> None:
     """Attach payment context to message metadata if available.
-    
+
     Payment context is passed through the metadata field in params.
     All three state fields are set atomically by X402Middleware only after
     successful payment validation. Use explicit ``is not None`` guards so
     that a falsy-but-present value (e.g. zero-amount payload) is not
     accidentally skipped.
-    
+
     Args:
         request: Starlette request with payment state
         a2a_request: A2A request dict to modify
@@ -47,23 +48,29 @@ def _attach_payment_context(
     """
     if method != "message/send":
         return
-    
+
     # Extract payment state from request
     payment_payload = getattr(request.state, "payment_payload", None)
     payment_requirements = getattr(request.state, "payment_requirements", None)
     verify_response = getattr(request.state, "verify_response", None)
-    
+
     # All three must be present
-    if not all([payment_payload is not None, payment_requirements is not None, verify_response is not None]):
+    if not all(
+        [
+            payment_payload is not None,
+            payment_requirements is not None,
+            verify_response is not None,
+        ]
+    ):
         return
-    
+
     # Ensure message exists in params
     if "params" not in a2a_request or "message" not in a2a_request["params"]:
         return
-    
+
     msg_obj = a2a_request["params"]["message"]
     msg_obj.setdefault("metadata", {})
-    
+
     try:
         msg_obj["metadata"]["_payment_context"] = {
             "payment_payload": _serialize_state_obj(payment_payload),
@@ -131,10 +138,12 @@ async def agent_run_endpoint(app: BinduApplication, request: Request) -> Respons
         logger.debug(f"A2A request from {client_ip}: method={method}, id={request_id}")
 
         # Authentication / Authorization guard
-        auth_error = validate_authentication(request, client_ip, "agent execution", request_id)
+        auth_error = validate_authentication(
+            request, client_ip, "agent execution", request_id
+        )
         if auth_error:
             return auth_error
-        
+
         # Permission checks (if authentication passed)
         if app_settings.auth.enabled:
             # Get user info from request state (set by auth middleware)

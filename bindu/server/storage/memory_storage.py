@@ -34,8 +34,14 @@ from bindu.utils.logging import get_logger
 from bindu.utils.retry import retry_storage_operation
 
 from .base import Storage
+from .helpers.validation import validate_uuid_type
 
 logger = get_logger("bindu.server.storage.memory_storage")
+
+# Constants
+DEFAULT_STORAGE_RETRY_ATTEMPTS = 3
+DEFAULT_STORAGE_MIN_WAIT = 0.1
+DEFAULT_STORAGE_MAX_WAIT = 1.0
 
 
 class InMemoryStorage(Storage[dict[str, Any]]):
@@ -57,7 +63,11 @@ class InMemoryStorage(Storage[dict[str, Any]]):
         self.task_feedback: dict[UUID, list[dict[str, Any]]] = {}
         self._webhook_configs: dict[UUID, PushNotificationConfig] = {}
 
-    @retry_storage_operation(max_attempts=3, min_wait=0.1, max_wait=1)
+    @retry_storage_operation(
+        max_attempts=DEFAULT_STORAGE_RETRY_ATTEMPTS,
+        min_wait=DEFAULT_STORAGE_MIN_WAIT,
+        max_wait=DEFAULT_STORAGE_MAX_WAIT,
+    )
     async def load_task(
         self, task_id: UUID, history_length: int | None = None
     ) -> Task | None:
@@ -70,8 +80,7 @@ class InMemoryStorage(Storage[dict[str, Any]]):
         Returns:
             Task object if found, None otherwise
         """
-        if not isinstance(task_id, UUID):
-            raise TypeError(f"task_id must be UUID, got {type(task_id).__name__}")
+        task_id = validate_uuid_type(task_id, "task_id")
 
         task = self.tasks.get(task_id)
         if task is None:
@@ -86,7 +95,11 @@ class InMemoryStorage(Storage[dict[str, Any]]):
 
         return task_copy
 
-    @retry_storage_operation(max_attempts=3, min_wait=0.1, max_wait=1)
+    @retry_storage_operation(
+        max_attempts=DEFAULT_STORAGE_RETRY_ATTEMPTS,
+        min_wait=DEFAULT_STORAGE_MIN_WAIT,
+        max_wait=DEFAULT_STORAGE_MAX_WAIT,
+    )
     async def submit_task(self, context_id: UUID, message: Message) -> Task:
         """Create a new task or continue an existing non-terminal task.
 
@@ -106,8 +119,7 @@ class InMemoryStorage(Storage[dict[str, Any]]):
             TypeError: If IDs are invalid types
             ValueError: If attempting to continue a terminal task
         """
-        if not isinstance(context_id, UUID):
-            raise TypeError(f"context_id must be UUID, got {type(context_id).__name__}")
+        context_id = validate_uuid_type(context_id, "context_id")
 
         # Parse task ID from message (handle both snake_case and camelCase)
         task_id_raw = message.get("task_id")
@@ -201,7 +213,11 @@ class InMemoryStorage(Storage[dict[str, Any]]):
 
         return task
 
-    @retry_storage_operation(max_attempts=3, min_wait=0.1, max_wait=1)
+    @retry_storage_operation(
+        max_attempts=DEFAULT_STORAGE_RETRY_ATTEMPTS,
+        min_wait=DEFAULT_STORAGE_MIN_WAIT,
+        max_wait=DEFAULT_STORAGE_MAX_WAIT,
+    )
     async def update_task(
         self,
         task_id: UUID,
@@ -230,8 +246,7 @@ class InMemoryStorage(Storage[dict[str, Any]]):
             TypeError: If task_id is not UUID
             KeyError: If task not found
         """
-        if not isinstance(task_id, UUID):
-            raise TypeError(f"task_id must be UUID, got {type(task_id).__name__}")
+        task_id = validate_uuid_type(task_id, "task_id")
 
         if task_id not in self.tasks:
             raise KeyError(f"Task {task_id} not found")
@@ -279,8 +294,7 @@ class InMemoryStorage(Storage[dict[str, Any]]):
         Raises:
             TypeError: If context_id is not UUID
         """
-        if not isinstance(context_id, UUID):
-            raise TypeError(f"context_id must be UUID, got {type(context_id).__name__}")
+        context_id = validate_uuid_type(context_id, "context_id")
 
         # Note: This method is kept for backward compatibility but contexts
         # are now primarily managed as task lists
@@ -297,8 +311,7 @@ class InMemoryStorage(Storage[dict[str, Any]]):
         Raises:
             TypeError: If context_id is not UUID
         """
-        if not isinstance(context_id, UUID):
-            raise TypeError(f"context_id must be UUID, got {type(context_id).__name__}")
+        context_id = validate_uuid_type(context_id, "context_id")
 
         task_list = self.contexts.get(context_id)
         if task_list is None:
@@ -321,8 +334,7 @@ class InMemoryStorage(Storage[dict[str, Any]]):
         Raises:
             TypeError: If context_id is not UUID or messages is not a list
         """
-        if not isinstance(context_id, UUID):
-            raise TypeError(f"context_id must be UUID, got {type(context_id).__name__}")
+        context_id = validate_uuid_type(context_id, "context_id")
 
         if not isinstance(messages, list):
             raise TypeError(f"messages must be list, got {type(messages).__name__}")
@@ -385,8 +397,7 @@ class InMemoryStorage(Storage[dict[str, Any]]):
         Raises:
             TypeError: If context_id is not UUID
         """
-        if not isinstance(context_id, UUID):
-            raise TypeError(f"context_id must be UUID, got {type(context_id).__name__}")
+        context_id = validate_uuid_type(context_id, "context_id")
 
         # Get task IDs from context
         task_ids = self.contexts.get(context_id, [])
@@ -443,8 +454,7 @@ class InMemoryStorage(Storage[dict[str, Any]]):
 
         Warning: This is a destructive operation.
         """
-        if not isinstance(context_id, UUID):
-            raise TypeError(f"context_id must be UUID, got {type(context_id).__name__}")
+        context_id = validate_uuid_type(context_id, "context_id")
 
         # Check if context exists
         if context_id not in self.contexts:
@@ -492,8 +502,7 @@ class InMemoryStorage(Storage[dict[str, Any]]):
         Raises:
             TypeError: If task_id is not UUID or feedback_data is not dict
         """
-        if not isinstance(task_id, UUID):
-            raise TypeError(f"task_id must be UUID, got {type(task_id).__name__}")
+        task_id = validate_uuid_type(task_id, "task_id")
 
         if not isinstance(feedback_data, dict):
             raise TypeError(
@@ -516,8 +525,7 @@ class InMemoryStorage(Storage[dict[str, Any]]):
         Raises:
             TypeError: If task_id is not UUID
         """
-        if not isinstance(task_id, UUID):
-            raise TypeError(f"task_id must be UUID, got {type(task_id).__name__}")
+        task_id = validate_uuid_type(task_id, "task_id")
 
         return self.task_feedback.get(task_id)
 
@@ -537,8 +545,7 @@ class InMemoryStorage(Storage[dict[str, Any]]):
         Raises:
             TypeError: If task_id is not UUID
         """
-        if not isinstance(task_id, UUID):
-            raise TypeError(f"task_id must be UUID, got {type(task_id).__name__}")
+        task_id = validate_uuid_type(task_id, "task_id")
 
         self._webhook_configs[task_id] = config
         logger.debug(f"Saved webhook config for task {task_id}")
@@ -555,8 +562,7 @@ class InMemoryStorage(Storage[dict[str, Any]]):
         Raises:
             TypeError: If task_id is not UUID
         """
-        if not isinstance(task_id, UUID):
-            raise TypeError(f"task_id must be UUID, got {type(task_id).__name__}")
+        task_id = validate_uuid_type(task_id, "task_id")
 
         return self._webhook_configs.get(task_id)
 
@@ -571,8 +577,7 @@ class InMemoryStorage(Storage[dict[str, Any]]):
 
         Note: Does not raise if the config doesn't exist.
         """
-        if not isinstance(task_id, UUID):
-            raise TypeError(f"task_id must be UUID, got {type(task_id).__name__}")
+        task_id = validate_uuid_type(task_id, "task_id")
 
         if task_id in self._webhook_configs:
             del self._webhook_configs[task_id]

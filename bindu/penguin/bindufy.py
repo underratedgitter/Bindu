@@ -56,18 +56,18 @@ DEFAULT_PROTOCOL_VERSION = "1.0.0"
 
 def _generate_agent_id(validated_config: Dict[str, Any]) -> UUID:
     """Generate deterministic agent ID from author + name.
-    
+
     Args:
         validated_config: Validated configuration dictionary
-        
+
     Returns:
         UUID: Deterministic agent ID
     """
     import hashlib
-    
+
     author = validated_config.get("author", "")
     agent_name = validated_config.get("name", "")
-    
+
     # Create deterministic ID from author + agent_name
     deterministic_string = f"{author}:{agent_name}"
     agent_id_hex = hashlib.sha256(deterministic_string.encode()).hexdigest()[:32]
@@ -79,13 +79,13 @@ def _generate_agent_id(validated_config: Dict[str, Any]) -> UUID:
 
 def _normalize_execution_costs(execution_cost: Any) -> list[dict[str, Any]]:
     """Normalize execution_cost to list of cost entries.
-    
+
     Args:
         execution_cost: Single dict or list of dicts
-        
+
     Returns:
         List of normalized cost dictionaries
-        
+
     Raises:
         ValueError: If execution_cost format is invalid
     """
@@ -98,41 +98,43 @@ def _normalize_execution_costs(execution_cost: Any) -> list[dict[str, Any]]:
         cost_entries = execution_cost
     else:
         raise ValueError("execution_cost must be either a dict or a list of dicts")
-    
+
     normalized_costs: list[dict[str, Any]] = []
-    
+
     for idx, cost in enumerate(cost_entries):
         if not isinstance(cost, dict):
             raise ValueError("Each entry in execution_cost list must be a dictionary")
-        
+
         amount = cost.get("amount")
         token = cost.get("token", DEFAULT_TOKEN)
         network = cost.get("network", DEFAULT_NETWORK)
         pay_to_address = cost.get("pay_to_address")
-        
+
         if not amount:
             raise ValueError(
                 "execution_cost.amount is required when execution_cost is configured"
             )
-        
+
         logger.info(f"Execution cost option {idx + 1}: {amount} {token} on {network}")
-        
-        normalized_costs.append({
-            "amount": amount,
-            "token": token,
-            "network": network,
-            "pay_to_address": pay_to_address,
-        })
-    
+
+        normalized_costs.append(
+            {
+                "amount": amount,
+                "token": token,
+                "network": network,
+                "pay_to_address": pay_to_address,
+            }
+        )
+
     return normalized_costs
 
 
 def _setup_x402_extension(normalized_costs: list[dict[str, Any]]) -> X402AgentExtension:
     """Create X402 extension from normalized costs.
-    
+
     Args:
         normalized_costs: List of normalized cost dictionaries
-        
+
     Returns:
         X402AgentExtension instance
     """
@@ -145,7 +147,7 @@ def _setup_x402_extension(normalized_costs: list[dict[str, Any]]) -> X402AgentEx
         required=True,
         payment_options=normalized_costs,
     )
-    
+
     logger.info(f"X402 extension created: {x402_extension}")
     return x402_extension
 
@@ -158,26 +160,26 @@ def _register_in_hydra(
     caller_dir: Path,
 ) -> Any | None:
     """Register agent in Hydra OAuth2 server if enabled.
-    
+
     Args:
         agent_id_str: Agent ID as string
         validated_config: Validated configuration dictionary
         agent_url: Agent URL
         did_extension: DID extension instance
         caller_dir: Caller directory path
-        
+
     Returns:
         AgentCredentials if successful, None otherwise
     """
     if not (app_settings.auth.enabled and app_settings.auth.provider == "hydra"):
         return None
-    
+
     logger.info(
         "Registering agent in Hydra OAuth2 server with DID-based authentication..."
     )
     import asyncio
     from bindu.auth.hydra.registration import register_agent_in_hydra
-    
+
     credentials = asyncio.run(
         register_agent_in_hydra(
             agent_id=agent_id_str,
@@ -188,7 +190,7 @@ def _register_in_hydra(
             did_extension=did_extension,
         )
     )
-    
+
     if credentials:
         logger.info(
             f"✅ Agent registered with OAuth client ID: {credentials.client_id}"
@@ -198,7 +200,7 @@ def _register_in_hydra(
             "⚠️  Agent registration in Hydra failed or was skipped. "
             "Authentication may not work correctly."
         )
-    
+
     return credentials
 
 
@@ -208,25 +210,25 @@ def _setup_tunnel(
     manifest: AgentManifest,
     bindu_app: Any,
 ) -> str | None:
-    """Setup tunnel if enabled and update URLs.
-    
+    """Set up tunnel if enabled and update URLs.
+
     Args:
         tunnel_config: Tunnel configuration
         port: Local port number
         manifest: Agent manifest to update
         bindu_app: Bindu application to update
-        
+
     Returns:
         Tunnel URL if successful, None otherwise
     """
     if not (tunnel_config and tunnel_config.enabled):
         return None
-    
+
     from bindu.tunneling.manager import TunnelManager
-    
+
     logger.info("Tunnel enabled, creating public URL...")
     tunnel_config.local_port = port
-    
+
     try:
         tunnel_manager = TunnelManager()
         tunnel_url = tunnel_manager.create_tunnel(
@@ -235,18 +237,18 @@ def _setup_tunnel(
             subdomain=tunnel_config.subdomain,
         )
         logger.info(f"✅ Tunnel created: {tunnel_url}")
-        
+
         # Update manifest URL to use tunnel URL
         manifest.url = tunnel_url
-        
+
         # Update BinduApplication URL to use tunnel URL
         bindu_app.url = tunnel_url
-        
+
         # Invalidate cached agent card so it gets regenerated with new URL
         bindu_app._agent_card_json_schema = None
-        
+
         return tunnel_url
-        
+
     except Exception as e:
         logger.error(f"Failed to create tunnel: {e}")
         logger.warning("Continuing with local-only server...")
@@ -255,10 +257,10 @@ def _setup_tunnel(
 
 def _create_telemetry_config(validated_config: Dict[str, Any]) -> TelemetryConfig:
     """Create telemetry configuration from validated config.
-    
+
     Args:
         validated_config: Validated configuration dictionary
-        
+
     Returns:
         TelemetryConfig instance
     """
@@ -431,7 +433,7 @@ def bindufy(
         # Convert string ID to UUID if needed
         id_value = validated_config["id"]
         agent_id = UUID(id_value) if isinstance(id_value, str) else id_value
-    
+
     # Convert to string once for reuse
     agent_id_str = str(agent_id)
 
@@ -514,7 +516,7 @@ def bindufy(
     if execution_cost:
         normalized_costs = _normalize_execution_costs(execution_cost)
         x402_extension = _setup_x402_extension(normalized_costs)
-        
+
         # Add x402 extension to capabilities
         capabilities = add_extension_to_capabilities(capabilities, x402_extension)
 

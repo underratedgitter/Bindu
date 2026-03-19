@@ -52,10 +52,10 @@ DEFAULT_SCORING_WEIGHTS = {
 
 def _build_negotiation_response(result: Any) -> dict:
     """Build negotiation response from calculation result.
-    
+
     Args:
         result: CapabilityCalculator result
-        
+
     Returns:
         Response data dict with optional fields included conditionally
     """
@@ -64,11 +64,11 @@ def _build_negotiation_response(result: Any) -> dict:
         "score": result.score,
         "confidence": result.confidence,
     }
-    
+
     # Add optional fields if present
     if result.rejection_reason:
         response["rejection_reason"] = result.rejection_reason
-    
+
     if result.skill_matches:
         response["skill_matches"] = [
             {
@@ -79,22 +79,22 @@ def _build_negotiation_response(result: Any) -> dict:
             }
             for m in result.skill_matches
         ]
-    
+
     if result.matched_tags:
         response["matched_tags"] = result.matched_tags
-    
+
     if result.matched_capabilities:
         response["matched_capabilities"] = result.matched_capabilities
-    
+
     if result.latency_estimate_ms is not None:
         response["latency_estimate_ms"] = result.latency_estimate_ms
-    
+
     if result.queue_depth is not None:
         response["queue_depth"] = result.queue_depth
-    
+
     if result.subscores:
         response["subscores"] = result.subscores
-    
+
     return response
 
 
@@ -201,9 +201,15 @@ async def negotiation_endpoint(app: BinduApplication, request: Request) -> Respo
         w = body["weights"]
         try:
             weights = ScoringWeights(
-                skill_match=w.get("skill_match", DEFAULT_SCORING_WEIGHTS["skill_match"]),
-                io_compatibility=w.get("io_compatibility", DEFAULT_SCORING_WEIGHTS["io_compatibility"]),
-                performance=w.get("performance", DEFAULT_SCORING_WEIGHTS["performance"]),
+                skill_match=w.get(
+                    "skill_match", DEFAULT_SCORING_WEIGHTS["skill_match"]
+                ),
+                io_compatibility=w.get(
+                    "io_compatibility", DEFAULT_SCORING_WEIGHTS["io_compatibility"]
+                ),
+                performance=w.get(
+                    "performance", DEFAULT_SCORING_WEIGHTS["performance"]
+                ),
                 load=w.get("load", DEFAULT_SCORING_WEIGHTS["load"]),
                 cost=w.get("cost", DEFAULT_SCORING_WEIGHTS["cost"]),
             )

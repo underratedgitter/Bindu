@@ -11,12 +11,20 @@ class HTTPError(Exception):
     """Base exception for all HTTP errors."""
 
     def __init__(self, message: str, status: int | None = None, url: str | None = None):
+        """Initialize HTTP error with message and optional status/URL.
+        
+        Args:
+            message: Error message
+            status: Optional HTTP status code
+            url: Optional URL that caused the error
+        """
         self.message = message
         self.status = status
         self.url = url
         super().__init__(self.message)
 
     def __str__(self) -> str:
+        """Return formatted error message with status and URL if available."""
         parts = [self.message]
         if self.status:
             parts.append(f"Status: {self.status}")
@@ -47,4 +55,3 @@ class HTTPServerError(HTTPError):
     """Raised for 5xx server errors."""
 
     pass
-

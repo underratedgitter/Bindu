@@ -93,10 +93,13 @@ class RedisScheduler(Scheduler):
             self._redis_client = None
 
     async def _send_operation(
-        self, operation_class: type, operation: str, params: TaskSendParams | TaskIdParams
+        self,
+        operation_class: type,
+        operation: str,
+        params: TaskSendParams | TaskIdParams,
     ) -> None:
         """Send task operation with trace context.
-        
+
         Args:
             operation_class: The operation class to instantiate
             operation: Operation type string
@@ -245,7 +248,7 @@ class RedisScheduler(Scheduler):
         operation_class = OPERATION_TYPES.get(operation_type)
         if not operation_class:
             raise ValueError(f"Unknown operation type: {operation_type}")
-        
+
         return operation_class(
             operation=operation_type, params=params, trace_id=trace_id, span_id=span_id
         )

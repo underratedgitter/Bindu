@@ -29,7 +29,7 @@ from typing import Any
 from uuid import UUID
 
 from sqlalchemy import delete, func, select, update, cast
-from sqlalchemy.dialects.postgresql import insert, JSONB, JSON
+from sqlalchemy.dialects.postgresql import insert, JSON
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
@@ -53,7 +53,7 @@ from .helpers import (
     serialize_for_jsonb,
     validate_uuid_type,
 )
-from .helpers.db_operations import get_current_utc_timestamp
+from .helpers.db_operations import get_current_utc_timestamp, prepare_jsonb_value
 from .schema import (
     contexts_table,
     task_feedback_table,
@@ -62,6 +62,15 @@ from .schema import (
 )
 
 logger = get_logger("bindu.server.storage.postgres_storage")
+
+# Constants
+ENGINE_NOT_INITIALIZED_ERROR = (
+    "PostgreSQL engine not initialized. Call connect() first."
+)
+TERMINAL_STATE_ERROR_TEMPLATE = (
+    "Cannot continue task {task_id}: Task is in terminal state '{state}' and is immutable. "
+    "Create a new task with referenceTaskIds to continue the conversation."
+)
 
 
 class PostgresStorage(Storage[dict[str, Any]]):
@@ -215,9 +224,7 @@ class PostgresStorage(Storage[dict[str, Any]]):
             RuntimeError: If engine is not initialized
         """
         if self._engine is None or self._session_factory is None:
-            raise RuntimeError(
-                "PostgreSQL engine not initialized. Call connect() first."
-            )
+            raise RuntimeError(ENGINE_NOT_INITIALIZED_ERROR)
 
     def _get_session_with_schema(self):
         """Create a session factory that will set search_path on connection.
@@ -366,22 +373,22 @@ class PostgresStorage(Storage[dict[str, Any]]):
 
                         if current_state in app_settings.agent.terminal_states:
                             raise ValueError(
-                                f"Cannot continue task {task_id}: Task is in terminal state '{current_state}' and is immutable. "
-                                f"Create a new task with referenceTaskIds to continue the conversation."
+                                TERMINAL_STATE_ERROR_TEMPLATE.format(
+                                    task_id=task_id, state=current_state
+                                )
                             )
 
                         logger.info(
                             f"Continuing existing task {task_id} from state '{current_state}'"
                         )
 
-                        serialized_message = serialize_for_jsonb(message)
                         stmt = (
                             update(tasks_table)
                             .where(tasks_table.c.id == task_id)
                             .values(
                                 history=func.jsonb_concat(
                                     tasks_table.c.history,
-                                    cast([serialized_message], JSONB),
+                                    prepare_jsonb_value([message]),
                                 ),
                                 state="submitted",
                                 state_timestamp=get_current_utc_timestamp(),
@@ -403,7 +410,6 @@ class PostgresStorage(Storage[dict[str, Any]]):
                     stmt = stmt.on_conflict_do_nothing(index_elements=["id"])
                     await session.execute(stmt)
 
-                    serialized_message = serialize_for_jsonb(message)
                     now = get_current_utc_timestamp()
                     stmt = (
                         insert(tasks_table)
@@ -413,7 +419,7 @@ class PostgresStorage(Storage[dict[str, Any]]):
                             kind="task",
                             state="submitted",
                             state_timestamp=now,
-                            history=[serialized_message],
+                            history=prepare_jsonb_value([message]),
                             artifacts=[],
                             metadata={},
                         )
@@ -473,15 +479,13 @@ class PostgresStorage(Storage[dict[str, Any]]):
                     }
 
                     if metadata:
-                        serialized_metadata = serialize_for_jsonb(metadata)
                         update_values["metadata"] = func.jsonb_concat(
-                            tasks_table.c.metadata, cast(serialized_metadata, JSONB)
+                            tasks_table.c.metadata, prepare_jsonb_value(metadata)
                         )
 
                     if new_artifacts:
-                        serialized_artifacts = serialize_for_jsonb(new_artifacts)
                         update_values["artifacts"] = func.jsonb_concat(
-                            tasks_table.c.artifacts, cast(serialized_artifacts, JSONB)
+                            tasks_table.c.artifacts, prepare_jsonb_value(new_artifacts)
                         )
 
                     if new_messages:
@@ -494,9 +498,8 @@ class PostgresStorage(Storage[dict[str, Any]]):
                                 message, task_id=task_id, context_id=task_row.context_id
                             )
 
-                        serialized_messages = serialize_for_jsonb(new_messages)
                         update_values["history"] = func.jsonb_concat(
-                            tasks_table.c.history, cast(serialized_messages, JSONB)
+                            tasks_table.c.history, prepare_jsonb_value(new_messages)
                         )
 
                     # Execute update
@@ -653,18 +656,16 @@ class PostgresStorage(Storage[dict[str, Any]]):
         async def _update():
             async with self._get_session_with_schema() as session:
                 async with session.begin():
-                    serialized_context = serialize_for_jsonb(
-                        context if isinstance(context, dict) else {}
-                    )
+                    context_data = context if isinstance(context, dict) else {}
                     stmt = insert(contexts_table).values(
                         id=context_id,
-                        context_data=serialized_context,
+                        context_data=serialize_for_jsonb(context_data),
                         message_history=[],
                     )
                     stmt = stmt.on_conflict_do_update(
                         index_elements=["id"],
                         set_={
-                            "context_data": serialized_context,
+                            "context_data": serialize_for_jsonb(context_data),
                             "updated_at": get_current_utc_timestamp(),
                         },
                     )
@@ -703,14 +704,13 @@ class PostgresStorage(Storage[dict[str, Any]]):
                     stmt = stmt.on_conflict_do_nothing(index_elements=["id"])
                     await session.execute(stmt)
 
-                    serialized_messages = serialize_for_jsonb(messages)
                     stmt = (
                         update(contexts_table)
                         .where(contexts_table.c.id == context_id)
                         .values(
                             message_history=func.jsonb_concat(
                                 contexts_table.c.message_history,
-                                cast(serialized_messages, JSONB),
+                                prepare_jsonb_value(messages),
                             ),
                             updated_at=get_current_utc_timestamp(),
                         )
@@ -873,9 +873,9 @@ class PostgresStorage(Storage[dict[str, Any]]):
         async def _store():
             async with self._get_session_with_schema() as session:
                 async with session.begin():
-                    serialized_feedback = serialize_for_jsonb(feedback_data)
                     stmt = insert(task_feedback_table).values(
-                        task_id=task_id, feedback_data=serialized_feedback
+                        task_id=task_id,
+                        feedback_data=serialize_for_jsonb(feedback_data),
                     )
                     await session.execute(stmt)
 
@@ -939,15 +939,15 @@ class PostgresStorage(Storage[dict[str, Any]]):
         async def _save():
             async with self._get_session_with_schema() as session:
                 async with session.begin():
-                    serialized_config = serialize_for_jsonb(config)
+                    config_data = serialize_for_jsonb(config)
                     stmt = insert(webhook_configs_table).values(
                         task_id=task_id,
-                        config=serialized_config,
+                        config=config_data,
                     )
                     stmt = stmt.on_conflict_do_update(
                         index_elements=["task_id"],
                         set_={
-                            "config": serialized_config,
+                            "config": config_data,
                             "updated_at": get_current_utc_timestamp(),
                         },
                     )
