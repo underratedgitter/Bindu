@@ -60,7 +60,7 @@ class MessageHandlers:
         task: Task,
         context_id: Any,
         error: Exception,
-        terminal_states: set[str]
+        terminal_states: set[str] | frozenset[str]
     ) -> dict:
         """Handle streaming errors and return error event.
         
