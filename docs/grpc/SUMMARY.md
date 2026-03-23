@@ -14,7 +14,7 @@
 **API Coverage Analysis:**
 - ✅ BinduService (3/3 methods documented)
   - RegisterAgent
-  - Heartbeat  
+  - Heartbeat
   - UnregisterAgent
 - ⚠️ AgentHandler (3/4 methods documented, 1 not implemented)
   - ✅ HandleMessages

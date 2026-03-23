@@ -1,273 +1,152 @@
-# gRPC Architecture Overview
+# Architecture
 
-Visual guide to how Bindu's gRPC layer works.
+## The Big Picture
 
-## Architecture Diagram
-
-```mermaid
-graph TB
-    subgraph "Developer's Code (Any Language)"
-        TS["TypeScript Agent<br/>(OpenAI, LangChain, etc.)"]
-        KT["Kotlin Agent<br/>(any framework)"]
-        RS["Rust Agent<br/>(any framework)"]
-    end
-
-    subgraph "Language SDKs (Thin Wrappers)"
-        TS_SDK["@bindu/sdk<br/>bindufy(config, handler)"]
-        KT_SDK["bindu-sdk (Kotlin)<br/>bindufy(config, handler)"]
-        RS_SDK["bindu-sdk (Rust)<br/>bindufy(config, handler)"]
-    end
-
-    subgraph "Bindu Core (Python)"
-        GRPC_SERVER["gRPC Server<br/>:3774<br/>BinduService"]
-        BINDUFY["_bindufy_core()<br/>DID, Auth, x402<br/>Manifest, Scheduler, Storage"]
-        HTTP["HTTP/A2A Server<br/>:3773<br/>BinduApplication"]
-        WORKER["ManifestWorker<br/>manifest.run(messages)"]
-        GRPC_CLIENT["GrpcAgentClient<br/>(callable)"]
-    end
-
-    TS --> TS_SDK
-    KT --> KT_SDK
-    RS --> RS_SDK
-
-    TS_SDK -->|"RegisterAgent<br/>(gRPC)"| GRPC_SERVER
-    KT_SDK -->|"RegisterAgent<br/>(gRPC)"| GRPC_SERVER
-    RS_SDK -->|"RegisterAgent<br/>(gRPC)"| GRPC_SERVER
-
-    GRPC_SERVER --> BINDUFY
-    BINDUFY --> HTTP
-    BINDUFY --> WORKER
-
-    WORKER -->|"manifest.run()"| GRPC_CLIENT
-    GRPC_CLIENT -->|"HandleMessages<br/>(gRPC)"| TS_SDK
-    GRPC_CLIENT -->|"HandleMessages<br/>(gRPC)"| KT_SDK
-    GRPC_CLIENT -->|"HandleMessages<br/>(gRPC)"| RS_SDK
-
-    CLIENT["External Client<br/>(A2A Protocol)"] -->|"POST /"| HTTP
-```
-
-## Complete Message Flow
-
-```mermaid
-sequenceDiagram
-    participant Dev as Developer's Code
-    participant SDK as Language SDK
-    participant Core as Bindu Core (:3774)
-    participant HTTP as A2A Server (:3773)
-    participant Worker as ManifestWorker
-    participant Client as External Client
-
-    Note over Dev,SDK: 1. Agent Startup
-
-    Dev->>SDK: bindufy(config, handler)
-    SDK->>SDK: Read skill files locally
-    SDK->>SDK: Start AgentHandler gRPC server (random port)
-    SDK->>Core: RegisterAgent(config_json, skills, callback_address)
-
-    Note over Core: Core runs full bindufy logic
-
-    Core->>Core: Validate config
-    Core->>Core: Generate agent ID (SHA256)
-    Core->>Core: Setup DID (Ed25519 keys)
-    Core->>Core: Setup x402 payments (if configured)
-    Core->>Core: Create manifest (manifest.run = GrpcAgentClient)
-    Core->>Core: Create BinduApplication (Starlette + middleware)
-    Core->>HTTP: Start uvicorn (background thread)
-
-    Core-->>SDK: RegisterAgentResponse {agent_id, did, agent_url}
-    SDK-->>Dev: "Agent registered! A2A URL: http://localhost:3773"
-
-    Note over SDK,Core: 2. Heartbeat Loop (every 30s)
-
-    loop Every 30 seconds
-        SDK->>Core: Heartbeat(agent_id, timestamp)
-        Core-->>SDK: HeartbeatResponse(acknowledged)
-    end
-
-    Note over Client,Dev: 3. Runtime — Message Execution
-
-    Client->>HTTP: POST / (A2A message/send)
-    HTTP->>Worker: TaskManager → Scheduler → Worker
-    Worker->>Worker: Build message history
-    Worker->>Worker: manifest.run(messages)
-
-    Note over Worker,SDK: manifest.run is GrpcAgentClient
-
-    Worker->>SDK: HandleMessages(messages) via gRPC
-    SDK->>Dev: handler(messages) — developer's function
-    Dev-->>SDK: response (string or {state, prompt})
-    SDK-->>Worker: HandleResponse
-
-    Note over Worker: ResultProcessor → ResponseDetector
-
-    Worker->>Worker: Normalize result, detect state
-    Worker->>HTTP: Update storage, create artifacts
-    HTTP-->>Client: A2A JSON-RPC response
-
-    Note over Client,Dev: 4. Shutdown
-
-    Dev->>SDK: Ctrl+C
-    SDK->>Core: UnregisterAgent(agent_id)
-    SDK->>SDK: Kill Python core child process
-```
-
-## SDK Internal Flow
-
-When a developer calls `bindufy()` from a language SDK:
-
-```mermaid
-flowchart TD
-    A["SDK: bindufy(config, handler)"] --> B["1. Read skill files from disk"]
-    B --> C["2. Start AgentHandler gRPC server\n(random port, e.g., :57139)"]
-    C --> D["3. Detect & spawn Python core\nas child process"]
-    D --> E{"bindu CLI found?"}
-    E -->|"pip installed"| F["bindu serve --grpc"]
-    E -->|"uv available"| G["uv run bindu serve --grpc"]
-    E -->|"fallback"| H["python -m bindu.cli serve --grpc"]
-    F --> I["4. Wait for :3774 to be ready"]
-    G --> I
-    H --> I
-    I --> J["5. Call RegisterAgent on :3774\n(config JSON + skills + callback)"]
-    J --> K["6. Core runs bindufy logic\n(DID, auth, x402, manifest)"]
-    K --> L["7. Core starts uvicorn on :3773\n(background thread)"]
-    L --> M["8. Return {agent_id, did, url}"]
-    M --> N["9. Start heartbeat loop (30s)"]
-    N --> O["10. Wait for HandleMessages calls"]
-
-    style A fill:#e1f5fe
-    style O fill:#e8f5e9
-```
-
-## Port Layout
+A TypeScript developer writes an agent. They call `bindufy()`. Here's what happens:
 
 ```
-Bindu Core Process
-├── :3773  Uvicorn (HTTP)  — A2A protocol, agent card, DID, health, x402, metrics
-└── :3774  gRPC Server     — RegisterAgent, Heartbeat, UnregisterAgent
-
-SDK Process
-└── :XXXXX  gRPC Server (dynamic port) — HandleMessages, GetCapabilities, HealthCheck
+Their TypeScript code                    Bindu Core (Python, auto-started)
+┌─────────────────────┐                  ┌────────────────────────────┐
+│                     │                  │                            │
+│  OpenAI SDK         │  1. Register     │  Config validation         │
+│  LangChain          │ ──────gRPC────►  │  DID key generation        │
+│  Any framework      │                  │  Auth (Hydra OAuth2)       │
+│                     │                  │  x402 payment setup        │
+│  handler(messages)  │  2. Execute      │  Manifest creation         │
+│  ◄──────gRPC────────│──────────────    │  Scheduler + Storage       │
+│                     │                  │  HTTP/A2A server (:3773)   │
+└─────────────────────┘                  └────────────────────────────┘
+        SDK process                              Core process
+     (developer's language)                   (Python, invisible)
 ```
 
-## Two-Way Communication
+Two processes. One terminal. The developer only sees their code. The Python process is a hidden child process that the SDK manages automatically.
 
-The gRPC layer enables **bidirectional** communication:
+## Why Two Processes?
 
-**SDK → Core (BinduService)**
-- Register agent
-- Send heartbeats
-- Unregister
+**Because the alternative is worse.**
 
-**Core → SDK (AgentHandler)**
-- Execute handler
-- Query capabilities
-- Health check
+Option A: Rewrite Bindu's core in every language. DID, auth, x402, scheduler, storage, A2A protocol — in TypeScript, then Kotlin, then Rust. Thousands of lines, each time. Every bug fixed three times.
 
-This is different from traditional HTTP where only the client initiates requests. With gRPC, both sides can initiate calls.
+Option B: Keep one core. Connect to it over a wire. The handler runs in the developer's language. Everything else runs in Python. One codebase for infrastructure. Thin SDKs for each language.
 
-## Key Components
+We chose B. The wire is gRPC.
 
-### 1. GrpcAgentClient (Core Side)
+## Two Services, Two Directions
 
-Replaces `manifest.run` for remote agents. When ManifestWorker calls it:
+gRPC isn't one-way. Both sides are servers AND clients:
+
+**BinduService** — lives in the Python core on `:3774`
+
+The SDK calls this to register and manage its agent:
+
+| Method | What it does |
+|--------|-------------|
+| `RegisterAgent` | "Here's my config, skills, and callback address. Make me a microservice." |
+| `Heartbeat` | "I'm still alive." (every 30 seconds) |
+| `UnregisterAgent` | "I'm shutting down. Clean up." |
+
+**AgentHandler** — lives in the SDK on a dynamic port
+
+The core calls this when work arrives:
+
+| Method | What it does |
+|--------|-------------|
+| `HandleMessages` | "A user sent this message. Run your handler and give me the response." |
+| `GetCapabilities` | "What can you do?" |
+| `HealthCheck` | "Are you still there?" |
+
+This bidirectional design is why gRPC was chosen over REST. Both sides initiate calls. REST can't do that without polling or websockets.
+
+## Message Flow: What Happens When a User Sends a Message
+
+A user sends "What is the capital of France?" to a TypeScript agent that's been bindufied:
+
+```
+1. User sends HTTP POST to :3773
+   {"method": "message/send", "params": {"message": {"text": "What is the capital of France?"}}}
+
+2. Bindu Core receives the request
+   TaskManager creates a task, Scheduler queues it
+
+3. ManifestWorker picks up the task
+   Builds conversation history from storage
+   Calls manifest.run(messages)
+
+4. manifest.run is a GrpcAgentClient
+   Converts messages to protobuf
+   Calls HandleMessages on the SDK's gRPC server
+
+5. TypeScript SDK receives the call
+   Deserializes messages: [{role: "user", content: "What is the capital of France?"}]
+   Calls the developer's handler function
+
+6. Developer's handler runs
+   const response = await openai.chat.completions.create({model: "gpt-4o", messages})
+   Returns "The capital of France is Paris."
+
+7. SDK sends the response back over gRPC
+   HandleResponse {content: "The capital of France is Paris."}
+
+8. GrpcAgentClient receives the response
+   Returns the string to ManifestWorker
+
+9. ManifestWorker processes the result
+   ResultProcessor normalizes it
+   ResponseDetector determines task state → "completed"
+   ArtifactBuilder creates a DID-signed artifact
+
+10. Core sends the A2A response back to the user
+    Task completed, with DID signature on the artifact
+```
+
+The entire round trip: ~2-5 seconds. The gRPC overhead is ~1-5ms. The rest is the LLM call.
+
+## GrpcAgentClient: The Invisible Bridge
+
+This is the component that makes everything work. It's a Python class that pretends to be a handler function.
+
+In `ManifestWorker`, line 171:
 
 ```python
-# In ManifestWorker
-raw_results = self.manifest.run(message_history)
-
-# For gRPC agents, this becomes:
-# 1. Convert messages to proto
-# 2. Call SDK's HandleMessages via gRPC
-# 3. Convert response back to Python
-# 4. Return to ManifestWorker
+raw_results = self.manifest.run(message_history or [])
 ```
 
-### 2. AgentRegistry (Core Side)
+For a Python agent, `manifest.run` is a local function. For a gRPC agent, it's a `GrpcAgentClient` instance. The worker can't tell the difference. It calls it the same way, gets the same types back, and processes the result identically.
 
-Thread-safe in-memory database tracking registered agents:
+This is why we didn't change ManifestWorker, ResultProcessor, ResponseDetector, or any downstream code. The abstraction holds. A callable is a callable.
 
-```python
-registry.register(agent_id, callback_address, manifest)
-entry = registry.get(agent_id)
-# entry.grpc_callback_address → where to call SDK
-```
+## What the SDK Does When You Call `bindufy()`
 
-### 3. BinduServiceImpl (Core Side)
+Step by step, from the developer typing `npx tsx index.ts` to seeing "Waiting for messages...":
 
-Handles SDK registration requests:
+1. **SDK reads skill files** from the project directory (yaml or markdown)
+2. **SDK starts an AgentHandler gRPC server** on a random available port
+3. **SDK detects how to run Python** — checks for `bindu` CLI, `uv`, or `python3`
+4. **SDK spawns the Bindu core** as a child process: `bindu serve --grpc --grpc-port 3774`
+5. **SDK waits for `:3774` to be ready** (polls with TCP connect, 30s timeout)
+6. **SDK calls `RegisterAgent`** with config JSON, skill data, and its callback address
+7. **Core validates config**, generates agent ID, creates DID keys, sets up x402/auth
+8. **Core creates manifest** with `manifest.run = GrpcAgentClient(callback_address)`
+9. **Core starts uvicorn** on `:3773` in a background thread
+10. **Core returns** `{agent_id, did, agent_url}` to the SDK
+11. **SDK starts a heartbeat loop** — pings the core every 30 seconds
+12. **SDK prints** "Agent registered!" and waits for HandleMessages calls
 
-```python
-def RegisterAgent(self, request, context):
-    # 1. Parse config JSON
-    # 2. Run full bindufy logic
-    # 3. Create GrpcAgentClient
-    # 4. Start HTTP server
-    # 5. Return agent_id, DID, URL
-```
+When the developer presses `Ctrl+C`, the SDK kills the Python child process and exits cleanly.
 
-### 4. SDK AgentHandler (SDK Side)
+## Python vs gRPC Agents: What's Different?
 
-Receives execution requests from core:
-
-```typescript
-// TypeScript SDK
-async function HandleMessages(request: HandleRequest): Promise<HandleResponse> {
-  const messages = request.messages;
-  const result = await developerHandler(messages);
-  return { content: result };
-}
-```
-
-## Data Flow Example
-
-**User sends message to agent:**
-
-```
-1. External Client
-   ↓ HTTP POST / (A2A message/send)
-2. Bindu HTTP Server (:3773)
-   ↓ TaskManager.send_message()
-3. ManifestWorker
-   ↓ manifest.run(messages)
-4. GrpcAgentClient
-   ↓ gRPC HandleMessages(messages)
-5. SDK AgentHandler (:50052)
-   ↓ developerHandler(messages)
-6. Developer's Code
-   ↓ return "response"
-7. SDK AgentHandler
-   ↓ HandleResponse{content: "response"}
-8. GrpcAgentClient
-   ↓ return "response"
-9. ManifestWorker
-   ↓ ResultProcessor → ResponseDetector
-10. Bindu HTTP Server
-    ↓ A2A JSON-RPC response
-11. External Client
-```
-
-## Comparison: Python vs gRPC Agents
-
-| Aspect | Python Agent | gRPC Agent |
-|--------|-------------|------------|
-| **Process** | Single Python process | Two processes (Core + SDK) |
+| | Python Agent | gRPC Agent |
+|---|---|---|
+| **Developer calls** | `bindufy(config, handler)` | `bindufy(config, handler)` (identical) |
+| **Handler runs in** | Same process as core | Separate process |
+| **Core started by** | `bindufy()` directly | SDK spawns as child process |
 | **Communication** | In-process function call | gRPC over localhost |
-| **Latency** | ~0ms | ~1-5ms |
-| **Language** | Python only | Any language |
-| **Setup** | `bindufy(config, handler)` | SDK spawns core as child |
-| **Debugging** | Python debugger | Requires gRPC tools |
-| **Streaming** | ✅ Supported | ❌ Not implemented |
+| **Latency overhead** | 0ms | 1-5ms |
+| **Language** | Python only | Any language with gRPC |
+| **DID, auth, x402** | Full support | Full support (identical) |
+| **Skills** | Loaded from filesystem | Sent as data during registration |
+| **Streaming** | Supported | Not yet implemented |
 
-## Why This Architecture?
-
-**Benefits:**
-- **Language agnostic** - Write agents in any language
-- **Zero changes** to core - ManifestWorker doesn't know about gRPC
-- **Transparent** - Developers just call `bindufy()`
-- **Full feature parity** - DID, x402, skills, auth all work
-
-**Trade-offs:**
-- Extra process overhead
-- Slightly higher latency
-- More complex debugging
-- Streaming not yet implemented
+The key insight: from the outside (A2A clients, other agents, the frontend), there is **no visible difference**. The agent card looks the same. The DID is generated the same way. The A2A responses have the same structure. The artifacts carry the same DID signatures. A client cannot tell whether the agent behind `:3773` is Python, TypeScript, or Kotlin.

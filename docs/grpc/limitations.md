@@ -1,136 +1,75 @@
-# Known Limitations
+# Limitations
 
-Current limitations and gaps in Bindu's gRPC implementation.
+Honest accounting of what doesn't work yet and what trade-offs we made.
 
-## ❌ Streaming Not Implemented
+## Streaming Responses
 
-### The Gap
+**Status: Not implemented**
 
-While `HandleMessagesStream` is defined in the proto specification, the `GrpcAgentClient` does **not** implement streaming support.
+The proto defines `HandleMessagesStream` — a server-side streaming RPC where the SDK yields response chunks incrementally. But `GrpcAgentClient` doesn't call it. Remote agents can only return complete responses.
 
-**What's Missing:**
+**What this means in practice:**
 
-```python
-# In bindu/grpc/client.py
-class GrpcAgentClient:
-    def __call__(self, messages):
-        # ✅ Implemented - calls HandleMessages (unary)
-        response = self._stub.HandleMessages(request, timeout=self._timeout)
-        return self._response_to_result(response)
-    
-    # ❌ NOT IMPLEMENTED
-    def stream_messages(self, messages):
-        """This method doesn't exist!"""
-        # Should call HandleMessagesStream and yield responses
-        for response in self._stub.HandleMessagesStream(request):
-            yield self._response_to_result(response)
-```
+You're building a TypeScript agent with GPT-4o. In a Python agent, you could stream tokens back to the user as they're generated — they see the response forming word by word. With a gRPC agent, the user waits for the entire response, then sees it all at once.
 
-### Impact
+For short answers (< 2 seconds), this doesn't matter. For long responses (analysis, code generation, research), the UX is noticeably worse.
 
-**For Remote Agents:**
-- Cannot use `message/stream` A2A endpoint
-- Cannot yield incremental responses
-- Cannot support real-time streaming use cases
-- Must return complete responses only
+**Workaround:** Return complete responses. Most agents do this anyway — the streaming gap only matters for chat-like interfaces where perceived latency matters.
 
-**For SDK Developers:**
-- TypeScript/Kotlin/Rust agents limited to unary responses
-- No support for streaming LLM outputs
-- No support for progressive data processing
-
-**For End Users:**
-- No streaming responses from non-Python agents
-- Worse UX for long-running tasks (no progress updates)
-
-### Misleading Documentation
-
-The main gRPC doc (line 72) states:
-
-> `HandleMessagesStream` | Core → SDK | Same as HandleMessages but with server-side streaming. SDK yields chunks, core collects them via `ResultProcessor.collect_results()`. **Enable with `use_streaming=True` on `GrpcAgentClient`.**
-
-This is **incorrect**:
-- `GrpcAgentClient` has no `use_streaming` parameter
-- No way to enable streaming
-- The method is not implemented
-
-### Workaround
-
-Use unary `HandleMessages` and return complete responses:
-
-```typescript
-// SDK handler - must return complete response
-async function handler(messages: ChatMessage[]): Promise<string> {
-  const response = await llm.complete(messages);
-  return response; // Cannot yield chunks
-}
-```
-
-### Status
-
-**Planned for future release.** Track progress in issue #XXX.
-
-**Implementation needed:**
+**What needs to happen:**
 1. Add `stream_messages()` method to `GrpcAgentClient`
-2. Update `ManifestWorker` to detect streaming handlers
-3. Integrate with existing `ResultProcessor.collect_results()`
-4. Add streaming tests
-5. Update SDK examples
+2. Wire it into `ManifestWorker` for streaming task execution
+3. Update SDK `AgentHandler` to support streaming handlers
+4. Add E2E tests for streaming round-trips
 
----
+## No TLS
 
-## ⚠️ Other Limitations
+gRPC connections use `grpc.insecure_channel`. Traffic between the core and SDK is unencrypted.
 
-### No Bidirectional Streaming
+**Why it's okay for now:** The core and SDK run on the same machine (localhost). The SDK spawns the core as a child process. There's no network exposure.
 
-Only server-side streaming (SDK → Core) is planned. Client-side streaming (Core → SDK) and bidirectional streaming are not in scope.
+**When it matters:** If you deploy the core and SDK on different machines, or in a zero-trust network environment. TLS/mTLS support is planned.
 
-### No Connection Pooling
+## No Automatic Reconnection
 
-Each `GrpcAgentClient` creates a single channel. For high-throughput scenarios, consider implementing connection pooling.
+If the SDK process crashes mid-execution, the `GrpcAgentClient` doesn't retry. The task fails, and the agent must be re-registered.
 
-### No Automatic Reconnection
+**What happens:** ManifestWorker catches the gRPC `UNAVAILABLE` error and marks the task as failed. The user gets an error response. On restart, the SDK calls `RegisterAgent` again and the agent is back.
 
-If the SDK crashes, the client doesn't automatically reconnect. The agent must be re-registered.
+**What would be better:** Automatic reconnection with exponential backoff, so transient failures (SDK restart, brief network blip) recover without re-registration.
 
-### No Load Balancing
+## No Connection Pooling
 
-If multiple SDK instances run the same agent, there's no built-in load balancing. Each registration creates a separate agent.
+Each `GrpcAgentClient` creates a single gRPC channel. Under high concurrency (many simultaneous tasks), all calls share one channel.
 
-### No Metrics for gRPC Calls
+For most agents this is fine — gRPC channels handle multiplexing well. But for agents processing hundreds of concurrent requests, a connection pool would reduce contention.
 
-The `/metrics` endpoint doesn't expose gRPC-specific metrics (call duration, error rates, etc.).
+## No gRPC-Specific Metrics
 
-### No TLS Support
+The `/metrics` endpoint (Prometheus) reports HTTP request metrics but not gRPC call metrics. You can't see HandleMessages latency, error rates, or call counts in the dashboard.
 
-Current implementation uses insecure channels (`grpc.insecure_channel`). TLS/mTLS is not configured.
+**Workaround:** Check the core's log output, which includes timing information for each handler call.
 
-**Security Note:** Only use gRPC on localhost or in trusted networks.
+## No Load Balancing
 
----
+If you run two instances of the same TypeScript agent, each one registers separately with a different callback address. There's no built-in routing to spread load across instances.
 
-## Comparison: What Works vs What Doesn't
+**Workaround:** Use a reverse proxy (like Envoy) in front of the SDK instances, and register the proxy address as the callback.
 
-| Feature | Python Agents | gRPC Agents | Status |
-|---------|--------------|-------------|--------|
-| **Unary responses** | ✅ | ✅ | Works |
-| **Streaming responses** | ✅ | ❌ | Not implemented |
-| **DID identity** | ✅ | ✅ | Works |
-| **x402 payments** | ✅ | ✅ | Works |
-| **Skills** | ✅ | ✅ | Works |
-| **State transitions** | ✅ | ✅ | Works |
-| **Health checks** | ✅ | ✅ | Works |
-| **Capabilities query** | ✅ | ✅ | Works |
-| **Heartbeat** | N/A | ✅ | Works |
-| **Multi-language** | ❌ | ✅ | Works |
+## Feature Comparison
 
----
+| Feature | Python Agents | gRPC Agents |
+|---------|--------------|-------------|
+| Unary responses | works | works |
+| Streaming responses | works | **not implemented** |
+| DID identity | works | works |
+| x402 payments | works | works |
+| Skills | works | works |
+| State transitions (input-required) | works | works |
+| Health checks | works | works |
+| Multi-language | Python only | any language |
+| Latency overhead | 0ms | 1-5ms |
+| TLS | N/A (in-process) | **not implemented** |
+| Auto-reconnection | N/A (in-process) | **not implemented** |
 
-## Feedback
-
-If you're blocked by any of these limitations, please:
-1. Open an issue on GitHub
-2. Describe your use case
-3. Vote on existing issues
-
-This helps prioritize which limitations to address first.
+The bottom line: gRPC agents have **full feature parity** with Python agents for the core functionality (DID, auth, payments, skills, A2A protocol). The gaps are in streaming, security, and resilience — all planned for future releases.

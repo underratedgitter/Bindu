@@ -22,20 +22,20 @@ graph TB
         CLIENT["BinduService Client<br/>Calls RegisterAgent"]
         LAUNCHER["CoreLauncher<br/>Spawns Python core"]
     end
-    
+
     subgraph "Bindu Core (Python)"
         GRPC["gRPC Server :3774<br/>BinduService"]
         HTTP["HTTP Server :3773<br/>A2A Protocol"]
     end
-    
+
     API --> LAUNCHER
     API --> SERVER
     API --> CLIENT
-    
+
     LAUNCHER -->|"spawn process"| GRPC
     CLIENT -->|"RegisterAgent RPC"| GRPC
     GRPC -->|"HandleMessages RPC"| SERVER
-    
+
     style API fill:#e1f5fe
     style GRPC fill:#fff3e0
 ```
@@ -106,7 +106,7 @@ import { HandleRequest, HandleResponse } from "./generated/agent_handler_pb";
 
 class AgentHandlerImpl implements AgentHandlerService {
   constructor(private handler: (messages: ChatMessage[]) => Promise<string>) {}
-  
+
   async handleMessages(
     call: grpc.ServerUnaryCall<HandleRequest, HandleResponse>,
     callback: grpc.sendUnaryData<HandleResponse>
@@ -117,10 +117,10 @@ class AgentHandlerImpl implements AgentHandlerService {
         role: m.getRole(),
         content: m.getContent()
       }));
-      
+
       // 2. Call developer's handler
       const result = await this.handler(messages);
-      
+
       // 3. Convert result to proto response
       const response = new HandleResponse();
       if (typeof result === "string") {
@@ -130,7 +130,7 @@ class AgentHandlerImpl implements AgentHandlerService {
         response.setState(result.state || "");
         response.setPrompt(result.prompt || "");
       }
-      
+
       callback(null, response);
     } catch (error) {
       callback({
@@ -139,7 +139,7 @@ class AgentHandlerImpl implements AgentHandlerService {
       });
     }
   }
-  
+
   async getCapabilities(
     call: grpc.ServerUnaryCall<GetCapabilitiesRequest, GetCapabilitiesResponse>,
     callback: grpc.sendUnaryData<GetCapabilitiesResponse>
@@ -150,7 +150,7 @@ class AgentHandlerImpl implements AgentHandlerService {
     response.setSupportsStreaming(false); // Not implemented yet
     callback(null, response);
   }
-  
+
   async healthCheck(
     call: grpc.ServerUnaryCall<HealthCheckRequest, HealthCheckResponse>,
     callback: grpc.sendUnaryData<HealthCheckResponse>
@@ -201,12 +201,12 @@ async function registerAgent(
     "localhost:3774",
     grpc.credentials.createInsecure()
   );
-  
+
   const request = new RegisterAgentRequest();
   request.setConfigJson(JSON.stringify(config));
   request.setSkillsList(skills);
   request.setGrpcCallbackAddress(callbackAddress);
-  
+
   return new Promise((resolve, reject) => {
     client.registerAgent(request, (err, response) => {
       if (err) reject(err);
@@ -227,7 +227,7 @@ import { spawn, ChildProcess } from "child_process";
 
 export class CoreLauncher {
   private process: ChildProcess | null = null;
-  
+
   async start(): Promise<void> {
     // Try different methods to find bindu CLI
     const commands = [
@@ -235,13 +235,13 @@ export class CoreLauncher {
       ["uv", ["run", "bindu", "serve", "--grpc"]],
       ["python", ["-m", "bindu.cli", "serve", "--grpc"]]
     ];
-    
+
     for (const [cmd, args] of commands) {
       try {
         this.process = spawn(cmd, args, {
           stdio: ["ignore", "pipe", "pipe"]
         });
-        
+
         // Wait for gRPC server to be ready
         await this.waitForReady("localhost:3774");
         return;
@@ -249,10 +249,10 @@ export class CoreLauncher {
         continue;
       }
     }
-    
+
     throw new Error("Failed to start Bindu core");
   }
-  
+
   private async waitForReady(address: string): Promise<void> {
     const maxAttempts = 30;
     for (let i = 0; i < maxAttempts; i++) {
@@ -262,7 +262,7 @@ export class CoreLauncher {
           address,
           grpc.credentials.createInsecure()
         );
-        
+
         // Simple health check
         await new Promise((resolve, reject) => {
           client.waitForReady(Date.now() + 1000, (err) => {
@@ -270,16 +270,16 @@ export class CoreLauncher {
             else resolve(null);
           });
         });
-        
+
         return; // Success!
       } catch {
         await new Promise(r => setTimeout(r, 100));
       }
     }
-    
+
     throw new Error("Bindu core failed to start");
   }
-  
+
   stop(): void {
     if (this.process) {
       this.process.kill();
@@ -307,33 +307,33 @@ export async function bindufy(
 ): Promise<void> {
   // 1. Read skill files
   const skills = await readSkills(config.skills || []);
-  
+
   // 2. Start AgentHandler gRPC server (random port)
   const handlerPort = await startAgentHandlerServer(handler);
   const callbackAddress = `localhost:${handlerPort}`;
-  
+
   // 3. Spawn Python core
   const coreLauncher = new CoreLauncher();
   await coreLauncher.start();
-  
+
   // 4. Register agent
   const response = await registerAgent(config, skills, callbackAddress);
-  
+
   console.log(`✅ Agent registered!`);
   console.log(`   Agent ID: ${response.getAgentId()}`);
   console.log(`   DID: ${response.getDid()}`);
   console.log(`   URL: ${response.getAgentUrl()}`);
-  
+
   // 5. Start heartbeat loop
   startHeartbeat(response.getAgentId());
-  
+
   // 6. Handle shutdown
   process.on("SIGINT", async () => {
     await unregisterAgent(response.getAgentId());
     coreLauncher.stop();
     process.exit(0);
   });
-  
+
   // Keep process alive
   await new Promise(() => {});
 }
@@ -350,10 +350,10 @@ describe("AgentHandlerServer", () => {
   it("should handle messages", async () => {
     const handler = async (messages) => "Echo: " + messages[0].content;
     const server = new AgentHandlerServer(handler);
-    
+
     const request = new HandleRequest();
     request.addMessages(new ChatMessage().setRole("user").setContent("Hi"));
-    
+
     const response = await server.handleMessages(request);
     expect(response.getContent()).toBe("Echo: Hi");
   });
@@ -368,16 +368,16 @@ Test the full flow:
 describe("bindufy", () => {
   it("should register and execute agent", async () => {
     const handler = async (messages) => "Test response";
-    
+
     // Start agent
     bindufy({
       author: "test@example.com",
       name: "test-agent"
     }, handler);
-    
+
     // Wait for registration
     await sleep(2000);
-    
+
     // Send A2A request
     const response = await fetch("http://localhost:3773", {
       method: "POST",
@@ -387,7 +387,7 @@ describe("bindufy", () => {
         params: { message: { parts: [{ text: "Hello" }] } }
       })
     });
-    
+
     expect(response.ok).toBe(true);
   });
 });

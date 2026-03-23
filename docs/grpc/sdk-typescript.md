@@ -56,11 +56,11 @@ sequenceDiagram
     SDK->>Core: RegisterAgent(config, skills)
     Core-->>SDK: {agent_id, did, url}
     SDK-->>Dev: "Agent running at http://localhost:3773"
-    
+
     loop Every 30s
         SDK->>Core: Heartbeat
     end
-    
+
     Client->>Core: A2A message/send
     Core->>SDK: HandleMessages(messages)
     SDK->>Dev: handler(messages)
@@ -80,11 +80,11 @@ const config: BinduConfig = {
   // Required
   author: "dev@example.com",
   name: "my-agent",
-  
+
   // Optional
   description: "My awesome agent",
   version: "1.0.0",
-  
+
   // Deployment
   deployment: {
     url: "http://localhost:3773",
@@ -94,18 +94,18 @@ const config: BinduConfig = {
       provider: "ngrok"
     }
   },
-  
+
   // Skills
   skills: [
     "skills/question-answering",
     "skills/data-analysis"
   ],
-  
+
   // Authentication
   auth: {
     enabled: false
   },
-  
+
   // Payments (x402)
   x402: {
     enabled: false,
@@ -166,7 +166,7 @@ bindufy(config, async (messages) => {
       content: m.content
     }))
   });
-  
+
   return response.choices[0].message.content || "";
 });
 ```
@@ -185,7 +185,7 @@ bindufy(config, async (messages) => {
     if (m.role === "agent") return new AIMessage(m.content);
     return new SystemMessage(m.content);
   });
-  
+
   const response = await llm.invoke(langchainMessages);
   return response.content as string;
 });
@@ -200,7 +200,7 @@ Return structured responses to control task state:
 ```typescript
 bindufy(config, async (messages) => {
   const lastMessage = messages[messages.length - 1];
-  
+
   if (!lastMessage.content.includes("confirm")) {
     return {
       state: "input-required",
@@ -208,7 +208,7 @@ bindufy(config, async (messages) => {
       content: "Waiting for confirmation..."
     };
   }
-  
+
   return "Confirmed! Processing...";
 });
 ```
@@ -219,7 +219,7 @@ bindufy(config, async (messages) => {
 bindufy(config, async (messages) => {
   // Check if user is authenticated
   const isAuthenticated = checkAuth(messages);
-  
+
   if (!isAuthenticated) {
     return {
       state: "auth-required",
@@ -227,7 +227,7 @@ bindufy(config, async (messages) => {
       content: "Authentication required"
     };
   }
-  
+
   return "Processing authenticated request...";
 });
 ```
@@ -370,10 +370,10 @@ bindufy({
   name: "context-agent"
 }, async (messages) => {
   // Use full message history for context
-  const context = messages.map(m => 
+  const context = messages.map(m =>
     `${m.role}: ${m.content}`
   ).join("\n");
-  
+
   return `Based on our conversation:\n${context}\n\nMy response: ...`;
 });
 ```
@@ -390,15 +390,15 @@ bindufy({
   skills: ["skills/weather.yaml"]
 }, async (messages) => {
   const lastMessage = messages[messages.length - 1].content;
-  
+
   // Extract location from message
   const location = extractLocation(lastMessage);
-  
+
   // Call weather API
   const weather = await axios.get(
     `https://api.weather.com/v1/current?location=${location}`
   );
-  
+
   return `The weather in ${location} is ${weather.data.condition}`;
 });
 ```
@@ -408,7 +408,7 @@ bindufy({
 The SDK provides full TypeScript types:
 
 ```typescript
-import { 
+import {
   BinduConfig,
   ChatMessage,
   HandlerResponse,
@@ -427,7 +427,7 @@ async function handler(
 ): Promise<string | HandlerResponse> {
   // messages[0].role is typed as "user" | "agent" | "system"
   // messages[0].content is string
-  
+
   return {
     state: "completed", // Autocomplete works!
     content: "Done"

@@ -1,263 +1,115 @@
 # GrpcAgentClient
 
-The `GrpcAgentClient` is the bridge that makes gRPC transparent to the Bindu core. It's a **callable class** that replaces `manifest.run` for remote agents.
+## What It Is
 
-## Visual Overview
+`GrpcAgentClient` is a Python class that looks like a function. You call it with messages, it returns a string or dict. Internally, it makes a gRPC call to a remote process in another language. But the caller doesn't know that.
 
-```mermaid
-graph LR
-    A[ManifestWorker] -->|"manifest.run(messages)"| B{Agent Type?}
-    B -->|Python| C[Python Function]
-    B -->|gRPC| D[GrpcAgentClient]
-    D -->|"HandleMessages RPC"| E[SDK AgentHandler]
-    E -->|"handler(messages)"| F[Developer's Code]
-    F -->|"return result"| E
-    E -->|"HandleResponse"| D
-    D -->|"str or dict"| A
-    C -->|"str or dict"| A
-    
-    style D fill:#e1f5fe
-    style E fill:#fff3e0
-```
+This is the trick that makes the entire language-agnostic system work without changing a single line in ManifestWorker.
 
-## How It Works
+## The Problem It Solves
 
-In `ManifestWorker.run_task()` at line 171 of `manifest_worker.py`:
+ManifestWorker has this line:
 
 ```python
 raw_results = self.manifest.run(message_history or [])
 ```
 
-- **Python agent**: `manifest.run` is a direct Python function call
-- **Remote agent**: `manifest.run` is a `GrpcAgentClient` instance
+For Python agents, `manifest.run` is a wrapper around the developer's handler function. It takes a list of message dicts, returns a string or dict.
 
-When called, `GrpcAgentClient`:
+For TypeScript/Kotlin agents, we need that same call to go over the network. But we can't change ManifestWorker — it handles task state transitions, error handling, tracing, payment settlement. Touching it risks breaking everything.
 
-1. Converts `list[dict[str, str]]` → proto `ChatMessage` objects
-2. Calls `AgentHandler.HandleMessages` on the SDK via gRPC
-3. Converts proto `HandleResponse` back to `str` or `dict`
-4. Returns result to ManifestWorker
+Solution: make `GrpcAgentClient` a callable that quacks like a handler function.
 
-## Implementation
-
-### Location
-`bindu/grpc/client.py`
-
-### Class Definition
+## How It Works
 
 ```python
 class GrpcAgentClient:
-    """Callable gRPC client that acts as manifest.run for remote agents."""
-    
     def __init__(self, callback_address: str, timeout: float = 30.0):
-        """Initialize the gRPC agent client.
-        
-        Args:
-            callback_address: SDK's AgentHandler gRPC server address
-                (e.g., "localhost:50052")
-            timeout: Timeout in seconds for HandleMessages calls
-        """
-        self._address = callback_address
+        self._address = callback_address  # e.g., "localhost:50052"
         self._timeout = timeout
-        self._channel: grpc.Channel | None = None
-        self._stub: agent_handler_pb2_grpc.AgentHandlerStub | None = None
+
+    def __call__(self, messages, **kwargs):
+        # 1. Convert Python dicts to protobuf
+        proto_msgs = [ChatMessage(role=m["role"], content=m["content"]) for m in messages]
+        request = HandleRequest(messages=proto_msgs)
+
+        # 2. Call the SDK's AgentHandler over gRPC
+        response = self._stub.HandleMessages(request, timeout=self._timeout)
+
+        # 3. Convert back to what ManifestWorker expects
+        if response.state:
+            return {"state": response.state, "prompt": response.prompt}
+        else:
+            return response.content
 ```
 
-### Key Methods
+Three steps: convert, call, convert back. That's the entire bridge.
 
-#### `__call__(messages, **kwargs)` - Execute Handler
+## The Response Contract
 
-The main method called by ManifestWorker:
+ManifestWorker doesn't care how the response was produced. It only cares about the type:
+
+| Handler returns | ManifestWorker does | Task state |
+|----------------|---------------------|------------|
+| `"The capital of France is Paris."` | Creates message + artifact | `completed` |
+| `{"state": "input-required", "prompt": "Can you clarify?"}` | Creates message, keeps task open | `input-required` |
+| `{"state": "auth-required"}` | Creates message, keeps task open | `auth-required` |
+
+GrpcAgentClient returns exactly these types. The downstream code — `ResultProcessor`, `ResponseDetector`, `ArtifactBuilder` — processes them identically to a local Python handler's output.
+
+## Real Example: What Happens When a User Asks a Question
+
+A user sends "What is quantum computing?" to a TypeScript agent:
+
+```
+ManifestWorker calls manifest.run(messages)
+  → GrpcAgentClient.__call__([{"role": "user", "content": "What is quantum computing?"}])
+    → Converts to protobuf: ChatMessage(role="user", content="What is quantum computing?")
+    → gRPC call: AgentHandler.HandleMessages(HandleRequest{messages: [...]})
+    → TypeScript SDK receives the call
+    → Developer's handler runs: await openai.chat.completions.create(...)
+    → OpenAI returns: "Quantum computing is a type of computation..."
+    → SDK returns: HandleResponse{content: "Quantum computing is...", state: ""}
+  → GrpcAgentClient sees state is empty, returns the string
+→ ManifestWorker receives "Quantum computing is..." (same as a local handler)
+→ ResultProcessor normalizes → ResponseDetector says "completed"
+→ ArtifactBuilder creates DID-signed artifact
+→ User gets the response
+```
+
+The GrpcAgentClient is the only component that knows gRPC exists. Everything above and below it is oblivious.
+
+## When It's Created
+
+During `RegisterAgent`, the gRPC service creates a `GrpcAgentClient` and attaches it to the manifest:
 
 ```python
-def __call__(
-    self, messages: list[dict[str, str]], **kwargs: Any
-) -> str | dict[str, Any]:
-    """Execute the remote handler with conversation history.
-    
-    Args:
-        messages: Conversation history as list of dicts.
-            Each dict has "role" (str) and "content" (str) keys.
-        **kwargs: Additional keyword arguments (ignored).
-    
-    Returns:
-        str: Plain text response (maps to "completed" task state)
-        dict: Structured response with "state" key for state transitions
-    """
+# In BinduServiceImpl.RegisterAgent():
+grpc_client = GrpcAgentClient(request.grpc_callback_address)
+
+# In create_manifest():
+manifest.run = grpc_client  # GrpcAgentClient IS the handler now
 ```
 
-**Implementation:**
-1. Lazy-connects to SDK's gRPC server
-2. Converts messages to proto format
-3. Calls `HandleMessages` RPC
-4. Converts response back to Python types
+From this point on, every task for this agent flows through the client.
 
-#### `health_check()` - Verify SDK is Alive
+## Connection Lifecycle
+
+The client connects lazily — the gRPC channel is created on the first call, not during initialization. This avoids connection errors during registration if the SDK's server isn't fully ready yet.
+
+When the SDK disconnects (Ctrl+C, crash), the next `HandleMessages` call fails with `grpc.StatusCode.UNAVAILABLE`. ManifestWorker's existing error handling catches this and marks the task as failed. No special handling needed.
+
+## Health Checks and Capabilities
 
 ```python
-def health_check(self) -> bool:
-    """Check if the remote SDK agent is healthy.
-    
-    Returns:
-        True if agent responds and reports healthy, False otherwise.
-    """
+grpc_client.health_check()       # Is the SDK still running? Returns True/False
+grpc_client.get_capabilities()   # What can the SDK do? Returns name, version, etc.
 ```
 
-#### `get_capabilities()` - Query Agent Info
+Used during heartbeat processing and capability discovery.
 
-```python
-def get_capabilities(self) -> agent_handler_pb2.GetCapabilitiesResponse | None:
-    """Query the remote SDK agent's capabilities.
-    
-    Returns:
-        GetCapabilitiesResponse if successful, None on failure.
-    """
-```
+## What It Doesn't Do Yet
 
-#### `close()` - Cleanup
-
-```python
-def close(self) -> None:
-    """Close the gRPC channel and release resources."""
-```
-
-## Response Format Contract
-
-The client returns exactly what `ResultProcessor` and `ResponseDetector` expect:
-
-| SDK Returns | GrpcAgentClient Returns | Task State |
-|------------|------------------------|------------|
-| Plain string `"Hello"` | `str` → `"Hello"` | `completed` |
-| `{state: "input-required", prompt: "Clarify?"}` | `dict` → `{"state": "input-required", "prompt": "Clarify?"}` | `input-required` |
-| `{state: "auth-required"}` | `dict` → `{"state": "auth-required"}` | `auth-required` |
-
-This means **zero changes** to:
-- ManifestWorker
-- ResultProcessor
-- ResponseDetector
-- Any downstream component
-
-They cannot tell the difference between a local Python handler and a remote gRPC handler.
-
-## Usage Example
-
-```python
-from bindu.grpc.client import GrpcAgentClient
-
-# Create client pointing to SDK's AgentHandler server
-client = GrpcAgentClient(callback_address="localhost:50052", timeout=30.0)
-
-# Call it like a normal function
-messages = [
-    {"role": "user", "content": "Hello"},
-    {"role": "agent", "content": "Hi there!"},
-    {"role": "user", "content": "What's the weather?"}
-]
-
-result = client(messages)
-# result is either str or dict, depending on SDK's response
-
-# Health check
-if client.health_check():
-    print("SDK is healthy")
-
-# Get capabilities
-caps = client.get_capabilities()
-if caps:
-    print(f"Agent: {caps.name}, Version: {caps.version}")
-    print(f"Supports streaming: {caps.supports_streaming}")
-
-# Cleanup
-client.close()
-```
-
-## Current Limitations
-
-### ❌ Streaming Not Implemented
-
-While `HandleMessagesStream` is defined in the proto, `GrpcAgentClient` does **not** implement it.
-
-**Missing:**
-- No method to call `HandleMessagesStream`
-- No way to handle streaming responses
-- Remote agents cannot yield incremental results
-
-**Impact:**
-- `message/stream` A2A endpoint won't work with gRPC agents
-- SDKs can only return complete responses
-- No support for real-time streaming use cases
-
-**Workaround:**
-Use unary `HandleMessages` for now. Streaming support is planned for a future release.
-
-## Thread Safety
-
-The client uses lazy connection initialization:
-- Channel and stub are created on first use
-- Safe for single-threaded use (ManifestWorker runs tasks sequentially)
-- Not thread-safe for concurrent calls from multiple threads
-
-## Error Handling
-
-```python
-try:
-    result = client(messages)
-except grpc.RpcError as e:
-    # gRPC call failed
-    # ManifestWorker catches this and calls _handle_task_failure
-    logger.error(f"gRPC call failed: {e}")
-```
-
-Common errors:
-- `UNAVAILABLE`: SDK server is down
-- `DEADLINE_EXCEEDED`: Handler took longer than timeout
-- `CANCELLED`: Request was cancelled
-- `UNKNOWN`: SDK handler raised an exception
-
-## Integration with Bindufy
-
-When an agent registers via gRPC:
-
-```python
-# In bindu/grpc/service.py (BinduServiceImpl.RegisterAgent)
-
-# Create GrpcAgentClient pointing to SDK
-client = GrpcAgentClient(
-    callback_address=request.grpc_callback_address,
-    timeout=app_settings.grpc.handler_timeout
-)
-
-# Create manifest with client as the handler
-manifest = AgentManifest(
-    # ... other fields ...
-    run=client  # This is the key!
-)
-
-# When ManifestWorker calls manifest.run(messages),
-# it's actually calling client(messages)
-```
-
-## Configuration
-
-Controlled by `app_settings.grpc`:
-
-```python
-from bindu.settings import app_settings
-
-# Timeout for HandleMessages calls
-timeout = app_settings.grpc.handler_timeout  # Default: 30.0 seconds
-
-# Max message size
-max_size = app_settings.grpc.max_message_length  # Default: 4MB
-```
-
-## Comparison: Python vs gRPC Agents
-
-| Aspect | Python Agent | gRPC Agent |
-|--------|-------------|------------|
-| `manifest.run` | Python function | `GrpcAgentClient` instance |
-| Execution | In-process | Cross-process via gRPC |
-| Language | Python only | Any language |
-| Latency | ~0ms | ~1-5ms (gRPC overhead) |
-| Streaming | ✅ Supported | ❌ Not implemented |
-| Debugging | Direct Python debugger | Requires gRPC debugging tools |
+- **Streaming** — proto defines `HandleMessagesStream` but the client doesn't implement it. Remote agents can only return complete responses. See [limitations](./limitations.md).
+- **Reconnection** — if the SDK crashes, the client doesn't retry. The agent must be re-registered.
+- **TLS** — uses insecure channels. Only safe on localhost or trusted networks.

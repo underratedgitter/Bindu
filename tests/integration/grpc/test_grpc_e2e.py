@@ -16,7 +16,6 @@ Run with: uv run pytest tests/integration/grpc/ -v -m e2e
 from __future__ import annotations
 
 import json
-import threading
 import time
 from concurrent import futures
 from typing import Any
@@ -334,9 +333,7 @@ class TestGrpcE2EMessageFlow:
         assert task["status"]["state"] == "completed"
 
         # Verify agent response in history
-        agent_messages = [
-            m for m in task["history"] if m["role"] == "agent"
-        ]
+        agent_messages = [m for m in task["history"] if m["role"] == "agent"]
         assert len(agent_messages) >= 1
 
         agent_response = agent_messages[0]
